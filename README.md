@@ -1,2 +1,2 @@
 # SeniorProject
-2017/18 CC CS Senior Project (GAN/ Text to Image Generator) - Eli, Calvin, Aidan, Nikhil
+2017/18 CC CS Senior Project on Generative Adversarial Networks (GANs) - Eli, Calvin, Aidan, Nikhil
