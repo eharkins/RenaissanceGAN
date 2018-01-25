@@ -165,7 +165,11 @@ def log(x):
 def batchToNotes(notes):
 
     return np.array([notes[0:5], notes[5:10]])
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> parent of 591e1bb... midi file generated - still bug with reshaping in sampleSound
 
 
 def getMidi(notesData):
