@@ -165,7 +165,7 @@ def log(x):
 def batchToNotes(notes):
 
     return np.array([notes[0:5], notes[5:10]])
-    
+
 
 
 def getMidi(notesData):
@@ -176,6 +176,10 @@ def getMidi(notesData):
     #convert to midi
     for x in range(8):
         songNotes = batchToNotes(notesData[10 * x:10 * (x + 1)])
+        print " - - - - - - -songNotes is"
+        print songNotes.ndim
+        songNotes = np.reshape(songNotes, (params.batch_size, DATA_SIZE))
+        print songNotes.ndim
         m = md.MIDIFile.from_notes(songNotes)
         #save to file
         filename = str(x)
