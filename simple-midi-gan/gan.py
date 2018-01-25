@@ -163,23 +163,44 @@ def log(x):
     return tf.log(tf.maximum(x, 1e-5))
 
 def batchToNotes(notes):
+    # print(notes)
+    notes[0] = notes[0]*7.29166667
+    notes[1] = notes[1]*24 + 21
+    notes[2] = notes[2]*2.08333333
+    notes[3] = notes[3]*100
+    notes[4] = notes[4]
 
-    return np.array([notes[0:5], notes[5:10]])
+    notes[5] = notes[5]*7.29166667
+    notes[6] = notes[6]*24 + 21
+    notes[7] = notes[7]*2.08333333
+    notes[8] = notes[8]*100
+    notes[9] = notes[9]
+
+    for x in range(len(notes)):
+        if (notes[x] < 0 or notes[x] > 256):
+            notes[x] = 0
+    songNotes = np.array([notes[0:5], notes[5:10]])
+    
+
+    return songNotes
     
 
 
 def getMidi(notesData):
+    print(notesData)
     # x = tf.placeholder(tf.float32, shape = (8, 10))
     # #notes = generator.eval(( feed_dict={self.z: self.sample_z}))
     # notes = generator.eval(feed_dict={x: np.array((8,10))},  tf.Session())
     #convert to numpy array
     #convert to midi
+    # print(notesData)
     for x in range(8):
-        songNotes = batchToNotes(notesData[10 * x:10 * (x + 1)])
+        songNotes = batchToNotes(notesData[x])
         m = md.MIDIFile.from_notes(songNotes)
+        print(songNotes)
         #save to file
         filename = str(x)
-        m.write("song" + filename + ".mid")
+        m.write("song.mid")
 
 
 class GAN(object):
