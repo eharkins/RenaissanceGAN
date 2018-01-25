@@ -16,7 +16,7 @@ import argparse
 import numpy as np
 import tensorflow as tf
 import random
-
+import madmom.utils.midi as md
 import matplotlib
 # Force matplotlib to not use any Xwindows backend.
 matplotlib.use('Agg')
@@ -112,8 +112,8 @@ def linear(input, output_dim, scope=None, stddev=1.0):
 def generator(input, h_dim):
     h0 = tf.nn.softplus(linear(input, h_dim, 'g0'))
     h1 = linear(h0, DATA_SIZE, 'g1')
-    print "generated: "
-    print h1
+    # print "generated: "
+    # print h1
     return h1
 
 
@@ -162,16 +162,24 @@ def log(x):
     '''
     return tf.log(tf.maximum(x, 1e-5))
 
-def getMidi(notes):
+def batchToNotes(notes):
+
+    return np.array([notes[0:5], notes[5:10]])
+    
+
+
+def getMidi(notesData):
     # x = tf.placeholder(tf.float32, shape = (8, 10))
     # #notes = generator.eval(( feed_dict={self.z: self.sample_z}))
     # notes = generator.eval(feed_dict={x: np.array((8,10))},  tf.Session())
     #convert to numpy array
     #convert to midi
-    notes.reshape((2,5))
-    m = md.MIDIFile.from_notes(notes)
-    #save to file
-    m.write("example.mid")
+    for x in range(8):
+        songNotes = batchToNotes(notesData[10 * x:10 * (x + 1)])
+        m = md.MIDIFile.from_notes(songNotes)
+        #save to file
+        filename = str(x)
+        m.write("song" + filename + ".mid")
 
 
 class GAN(object):
@@ -181,8 +189,8 @@ class GAN(object):
         with tf.variable_scope('G'):
             self.z = tf.placeholder(tf.float32, shape=(params.batch_size, DATA_SIZE))
             self.G = generator(self.z, params.hidden_size)
-        print "generator is:"
-        print self.G
+        # print "generator is:"
+        # print self.G
         # The discriminator tries to tell the difference between samples from
         # the true data distribution (self.x) and the generated samples
         # (self.z).
@@ -266,14 +274,14 @@ def sampleSound(
     num_bins=100
 ):
 
-    print "batch size is: "
-    print batch_size
-    print "model is:"
-    print model
-    print "data is: "
-    print data
-    print "sample_range is: "
-    print sample_range
+    # print "batch size is: "
+    # print batch_size
+    # print "model is:"
+    # print model
+    # print "data is: "
+    # print data
+    # print "sample_range is: "
+    # print sample_range
 
     '''
     Return a pg where db is the current decision
@@ -298,7 +306,7 @@ def sampleSound(
         vector.append(0)
         arr[x] = vector
 
-    xs = np.array(arr)
+    xs = zs = np.array(arr)
     bins = np.linspace(-sample_range, sample_range, num_bins)
 
     # # decision boundary
@@ -321,20 +329,22 @@ def sampleSound(
     pd, _ = np.histogram(d, bins=bins, density=True)
 
     # generated samples
-    zs = np.linspace(-sample_range, sample_range, num_points)
-    g = np.zeros((num_points, 1))
+    # zs = np.linspace(-sample_range, sample_range, num_points)
+    g = np.zeros((num_points, DATA_SIZE))
     for i in range(num_points // batch_size):
         g[batch_size * i:batch_size * (i + 1)] = session.run(
             model.G,
             {
                 model.z: np.reshape(
                     zs[batch_size * i:batch_size * (i + 1)],
-                    (batch_size, 1)
+                    (batch_size, DATA_SIZE)
                 )
             }
         )
         getMidi(g[batch_size * i: batch_size * (i+1)])
     pg, _ = np.histogram(g, bins=bins, density=True)
+    print('pg')
+    print(pg)
 
     return pg
 
@@ -351,14 +361,14 @@ def samples(
     num_bins=100
 ):
 
-    print "batch size is: "
-    print batch_size
-    print "model is:"
-    print model
-    print "data is: "
-    print data
-    print "sample_range is: "
-    print sample_range
+    # print "batch size is: "
+    # print batch_size
+    # print "model is:"
+    # print model
+    # print "data is: "
+    # print data
+    # print "sample_range is: "
+    # print sample_range
 
     '''
     Return a tuple (db, pd, pg), where db is the current decision
@@ -390,8 +400,8 @@ def samples(
     # decision boundary
     db = np.zeros((num_points, 1))
     for i in range(num_points // batch_size):
-        print "xs[batch_size * i:batch_size * (i + 1)] is"
-        print (xs[batch_size * i:batch_size * (i + 1)])
+        # print "xs[batch_size * i:batch_size * (i + 1)] is"
+        # print (xs[batch_size * i:batch_size * (i + 1)])
         db[batch_size * i:batch_size * (i + 1)] = session.run(
             model.D1,
             {
@@ -415,7 +425,7 @@ def samples(
             {
                 model.z: np.reshape(
                     zs[batch_size * i:batch_size * (i + 1)],
-                    (batch_size, 10)
+                    (batch_size, DATA_SIZE)
                 )
             }
         )
