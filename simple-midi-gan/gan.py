@@ -112,6 +112,8 @@ def linear(input, output_dim, scope=None, stddev=1.0):
 def generator(input, h_dim):
     h0 = tf.nn.softplus(linear(input, h_dim, 'g0'))
     h1 = linear(h0, DATA_SIZE, 'g1')
+    print "generated: "
+    print h1
     return h1
 
 
@@ -160,6 +162,17 @@ def log(x):
     '''
     return tf.log(tf.maximum(x, 1e-5))
 
+def getMidi(generator, session):
+    x = tf.placeholder(tf.float32, shape = (8, 10))
+    #notes = generator.eval(( feed_dict={self.z: self.sample_z}))
+    notes = generator.eval(feed_dict={x: np.array((8,10))},  tf.Session())
+    #convert to numpy array
+    #convert to midi
+    notes.reshape((2,5))
+    m = md.MIDIFile.from_notes(notes)
+    #save to file
+    m.write("example.mid")
+
 
 class GAN(object):
     def __init__(self, params):
@@ -168,7 +181,8 @@ class GAN(object):
         with tf.variable_scope('G'):
             self.z = tf.placeholder(tf.float32, shape=(params.batch_size, DATA_SIZE))
             self.G = generator(self.z, params.hidden_size)
-
+        print "generator is:"
+        print self.G
         # The discriminator tries to tell the difference between samples from
         # the true data distribution (self.x) and the generated samples
         # (self.z).
@@ -176,13 +190,7 @@ class GAN(object):
         # Here we create two copies of the discriminator network
         # that share parameters, as you cannot use the same network with
         # different inputs in TensorFlow.
-        print "self.z is:"
-        print self.z
         self.x = tf.placeholder(tf.float32, shape=(params.batch_size, DATA_SIZE))
-        print "self.x is:"
-        print self.x
-        print "self.G is:"
-        print self.G
         with tf.variable_scope('D'):
             self.D1 = discriminator(
                 self.x,
@@ -244,6 +252,7 @@ def train(model, data, gen, params):
         # else:
         #     samps = samples(model, session, data, gen.range, params.batch_size)
         #     plot_distributions(samps, gen.range)
+        getMidi(model.G, session)
 
 
 def samples(
