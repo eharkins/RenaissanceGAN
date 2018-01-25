@@ -162,10 +162,10 @@ def log(x):
     '''
     return tf.log(tf.maximum(x, 1e-5))
 
-def getMidi(generator, session):
-    x = tf.placeholder(tf.float32, shape = (8, 10))
-    #notes = generator.eval(( feed_dict={self.z: self.sample_z}))
-    notes = generator.eval(feed_dict={x: np.array((8,10))},  tf.Session())
+def getMidi(notes):
+    # x = tf.placeholder(tf.float32, shape = (8, 10))
+    # #notes = generator.eval(( feed_dict={self.z: self.sample_z}))
+    # notes = generator.eval(feed_dict={x: np.array((8,10))},  tf.Session())
     #convert to numpy array
     #convert to midi
     notes.reshape((2,5))
@@ -242,6 +242,7 @@ def train(model, data, gen, params):
             if step % params.log_every == 0:
                 print('{}: {:.4f}\t{:.4f}'.format(step, loss_d, loss_g))
 
+        sampleSound(model, session, data, gen.range, params.batch_size)
             # if params.anim_path and (step % params.anim_every == 0):
             #     anim_frames.append(
             #         samples(model, session, data, gen.range, params.batch_size)
@@ -252,7 +253,92 @@ def train(model, data, gen, params):
         # else:
         #     samps = samples(model, session, data, gen.range, params.batch_size)
         #     plot_distributions(samps, gen.range)
-        getMidi(model.G, session)
+        #getMidi(model.G, session)
+
+
+def sampleSound(
+    model,
+    session,
+    data,
+    sample_range,
+    batch_size,
+    num_points=10000,
+    num_bins=100
+):
+
+    print "batch size is: "
+    print batch_size
+    print "model is:"
+    print model
+    print "data is: "
+    print data
+    print "sample_range is: "
+    print sample_range
+
+    '''
+    Return a pg where db is the current decision
+    pg is a histogram of generated samples.
+    '''
+    xs = np.linspace(-sample_range, sample_range, num_points)
+    arr = np.empty([8, DATA_SIZE])
+    for x in range(8):
+        # i = random.randint(21, 33)
+        i = x + 13
+        vector = []
+        vector.append(1.04166667/7.29166667)
+        vector.append((i-21)/24)
+        vector.append(1)
+        vector.append(1)
+        vector.append(0)
+
+        vector.append(4.166667/7.29166667)
+        vector.append((i+9)/24)
+        vector.append(1)
+        vector.append(1)
+        vector.append(0)
+        arr[x] = vector
+
+    xs = np.array(arr)
+    bins = np.linspace(-sample_range, sample_range, num_bins)
+
+    # # decision boundary
+    # db = np.zeros((num_points, 1))
+    # for i in range(num_points // batch_size):
+    #     print "xs[batch_size * i:batch_size * (i + 1)] is"
+    #     print (xs[batch_size * i:batch_size * (i + 1)])
+    #     db[batch_size * i:batch_size * (i + 1)] = session.run(
+    #         model.D1,
+    #         {
+    #             model.x: np.reshape(
+    #                 xs[batch_size * i:batch_size * (i + 1)],
+    #                 (batch_size, DATA_SIZE)
+    #             )
+    #         }
+    #     )
+
+    # data distribution
+    d = data.sample(num_points)
+    pd, _ = np.histogram(d, bins=bins, density=True)
+
+    # generated samples
+    zs = np.linspace(-sample_range, sample_range, num_points)
+    g = np.zeros((num_points, 1))
+    for i in range(num_points // batch_size):
+        g[batch_size * i:batch_size * (i + 1)] = session.run(
+            model.G,
+            {
+                model.z: np.reshape(
+                    zs[batch_size * i:batch_size * (i + 1)],
+                    (batch_size, 1)
+                )
+            }
+        )
+        getMidi(g[batch_size * i: batch_size * (i+1)])
+    pg, _ = np.histogram(g, bins=bins, density=True)
+
+    return pg
+
+
 
 
 def samples(
@@ -311,7 +397,7 @@ def samples(
             {
                 model.x: np.reshape(
                     xs[batch_size * i:batch_size * (i + 1)],
-                    (batch_size, 1)
+                    (batch_size, DATA_SIZE)
                 )
             }
         )
@@ -333,6 +419,7 @@ def samples(
                 )
             }
         )
+        getMidi(g[batch_size * i: batch_size * (i+1)])
     pg, _ = np.histogram(g, bins=bins, density=True)
 
     return db, pd, pg
