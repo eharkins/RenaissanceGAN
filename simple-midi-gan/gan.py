@@ -118,7 +118,7 @@ def generator(input, h_dim):
 
 
 def discriminator(input, h_dim, minibatch_layer=True):
-    print("******DISCRIMINATOR********")
+    # print("******DISCRIMINATOR********")
     h0 = tf.nn.relu(linear(input, h_dim * 2, 'd0'))
     h1 = tf.nn.relu(linear(h0, h_dim * 2, 'd1'))
 
@@ -164,7 +164,8 @@ def log(x):
     return tf.log(tf.maximum(x, 1e-5))
 
 def batchToNotes(notes):
-    # print(notes)
+    # print("notes 0")
+    # print(type(notes))
     notes[0] = notes[0]*7.29166667
     notes[1] = notes[1]*24 + 21
     notes[2] = notes[2]*2.08333333
@@ -181,24 +182,24 @@ def batchToNotes(notes):
         if (notes[x] < 0 or notes[x] > 256):
             notes[x] = 0
     songNotes = np.array([notes[0:5], notes[5:10]])
-
-
     return songNotes
 
 
 
 def getMidi(notesData):
-    print(notesData)
+    # print(notesData)
     # x = tf.placeholder(tf.float32, shape = (8, 10))
     # #notes = generator.eval(( feed_dict={self.z: self.sample_z}))
     # notes = generator.eval(feed_dict={x: np.array((8,10))},  tf.Session())
     #convert to numpy array
     #convert to midi
     # print(notesData)
-    for x in range(8):
+    print(len(notesData))
+    print(len(notesData[0]))
+    for x in range(len(notesData)):
         songNotes = batchToNotes(notesData[x])
         m = md.MIDIFile.from_notes(songNotes)
-        print(songNotes)
+        # print(songNotes)
         #save to file
         filename = str(x)
         m.write("song" + filename + ".mid")
@@ -272,7 +273,7 @@ def train(model, data, gen, params):
             if step % params.log_every == 0:
                 print('{}: {:.4f}\t{:.4f}'.format(step, loss_d, loss_g))
 
-        sampleSound(model, session, data, gen.range, params.batch_size)
+            # sampleSound(model, session, data, gen.range, params.batch_size)
             # if params.anim_path and (step % params.anim_every == 0):
             #     anim_frames.append(
             #         samples(model, session, data, gen.range, params.batch_size)
@@ -281,9 +282,11 @@ def train(model, data, gen, params):
         # if params.anim_path:
         #     save_animation(anim_frames, params.anim_path, gen.range)
         # else:
-        #     samps = samples(model, session, data, gen.range, params.batch_size)
-        #     plot_distributions(samps, gen.range)
-        #getMidi(model.G, session)
+        samps = sampleSound(model, session, data, gen.range, params.batch_size)
+        # plot_distributions(samps, gen.range)
+        # print("samps")
+        # print(samps)
+        getMidi(samps)
 
 
 def sampleSound(
@@ -292,12 +295,12 @@ def sampleSound(
     data,
     sample_range,
     batch_size,
-    num_points=10000,
+    num_points=8000,
     num_bins=100
 ):
 
-    # print "batch size is: "
-    # print batch_size
+    # print ("batch size is: ")
+    # print (batch_size)
     # print "model is:"
     # print model
     # print "data is: "
@@ -309,9 +312,9 @@ def sampleSound(
     Return a pg where db is the current decision
     pg is a histogram of generated samples.
     '''
-    xs = np.linspace(-sample_range, sample_range, num_points)
-    arr = np.empty([8, DATA_SIZE])
-    for x in range(8):
+    # xs = np.linspace(-sample_range, sample_range, num_points)
+    arr = np.empty([num_points, DATA_SIZE])
+    for x in range(num_points):
         # i = random.randint(21, 33)
         i = x + 13
         vector = []
@@ -332,10 +335,8 @@ def sampleSound(
     bins = np.linspace(-sample_range, sample_range, num_bins)
 
     # # decision boundary
-    # db = np.zeros((num_points, 1))
+    # db = np.zeros((num_points, DATA_SIZE))
     # for i in range(num_points // batch_size):
-    #     print "xs[batch_size * i:batch_size * (i + 1)] is"
-    #     print (xs[batch_size * i:batch_size * (i + 1)])
     #     db[batch_size * i:batch_size * (i + 1)] = session.run(
     #         model.D1,
     #         {
@@ -346,13 +347,15 @@ def sampleSound(
     #         }
     #     )
 
-    # data distribution
-    d = data.sample(num_points)
-    pd, _ = np.histogram(d, bins=bins, density=True)
+    # # data distribution
+    # d = data.sample(num_points)
+    # pd, _ = np.histogram(d, bins=bins, density=True)
 
     # generated samples
     # zs = np.linspace(-sample_range, sample_range, num_points)
     g = np.zeros((num_points, DATA_SIZE))
+    print(num_points//batch_size)
+    samps = np.empty([num_points // batch_size, DATA_SIZE])
     for i in range(num_points // batch_size):
         g[batch_size * i:batch_size * (i + 1)] = session.run(
             model.G,
@@ -363,12 +366,17 @@ def sampleSound(
                 )
             }
         )
-        getMidi(g[batch_size * i: batch_size * (i+1)])
-    pg, _ = np.histogram(g, bins=bins, density=True)
-    print('pg')
-    print(pg)
+        notesData = g[batch_size * i: batch_size * (i+1)]
+        # print(len(notesData))
+        # print(len(notesData[0]))
+        np.concatenate((samps,notesData), axis=0)
 
-    return pg
+    return samps
+    # pg, _ = np.histogram(g, bins=bins, density=True)
+    # print('pg')
+    # print(pg)
+
+    # return pg
 
 
 
@@ -531,7 +539,7 @@ def main(args):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num-steps', type=int, default=10000,
+    parser.add_argument('--num-steps', type=int, default=600,
                         help='the number of training steps to take')
     parser.add_argument('--hidden-size', type=int, default=4,
                         help='MLP hidden size')
