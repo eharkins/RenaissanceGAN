@@ -181,10 +181,10 @@ def batchToNotes(notes):
         if (notes[x] < 0 or notes[x] > 256):
             notes[x] = 0
     songNotes = np.array([notes[0:5], notes[5:10]])
-    
+
 
     return songNotes
-    
+
 
 
 def getMidi(notesData):
