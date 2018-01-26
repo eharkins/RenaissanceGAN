@@ -170,10 +170,6 @@ def batchToNotes(notes):
     notes[3] = notes[3]*100
     notes[4] = notes[4]
 
-<<<<<<< HEAD
-    return np.array([notes[0:5], notes[5:10]])
-<<<<<<< HEAD
-=======
     notes[5] = notes[5]*7.29166667
     notes[6] = notes[6]*24 + 21
     notes[7] = notes[7]*2.08333333
@@ -187,11 +183,7 @@ def batchToNotes(notes):
 
 
     return songNotes
->>>>>>> parent of 2fa2e0d... asdf
 
-=======
-    
->>>>>>> parent of 591e1bb... midi file generated - still bug with reshaping in sampleSound
 
 
 def getMidi(notesData):
