@@ -34,7 +34,7 @@ np.random.seed(seed)
 tf.set_random_seed(seed)
 
 DATA_SIZE = 10
-DATASET_SIZE = 600
+DATASET_SIZE = 1200
 
 class MusicNotes(object):
     def extract_data(self, file):
@@ -118,6 +118,7 @@ def generator(input, h_dim):
 
 
 def discriminator(input, h_dim, minibatch_layer=True):
+    print("******DISCRIMINATOR********")
     h0 = tf.nn.relu(linear(input, h_dim * 2, 'd0'))
     h1 = tf.nn.relu(linear(h0, h_dim * 2, 'd1'))
 
@@ -200,7 +201,7 @@ def getMidi(notesData):
         print(songNotes)
         #save to file
         filename = str(x)
-        m.write("song.mid")
+        m.write("song" + filename + ".mid")
 
 
 class GAN(object):
@@ -530,7 +531,7 @@ def main(args):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num-steps', type=int, default=500,
+    parser.add_argument('--num-steps', type=int, default=10000,
                         help='the number of training steps to take')
     parser.add_argument('--hidden-size', type=int, default=4,
                         help='MLP hidden size')
