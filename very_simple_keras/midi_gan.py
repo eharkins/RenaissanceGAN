@@ -21,7 +21,7 @@ import madmom.utils.midi as md
 
 batch_size = 32*32
 
-print "loading data"
+print ("loading data")
 
 
 #load midi file
@@ -32,14 +32,14 @@ data = m.notes()
 # f = pydub.AudioSegment.from_wav('old_recording.wav')
 #data = np.fromstring(f._data, np.int16)
 data = data.astype(np.float64).reshape((-1,2))
-print data.shape
+print (data.shape)
 data = data[:,0]+data[:,1]
 data -= data.min()
 data /= data.max() / 2.
 data -= 1.
-print data.shape
+print (data.shape)
 
-print "Setting up decoder"
+print ("Setting up decoder")
 decoder = Sequential()
 decoder.add(Dense(512, input_dim=32768, activation='relu'))
 decoder.add(Dropout(0.5))
@@ -52,7 +52,7 @@ decoder.trainable=False
 sgd = SGD(lr=0.01, momentum=0.1)
 decoder.compile(loss='binary_crossentropy', optimizer=sgd)
 
-print "Setting up generator"
+print ("Setting up generator")
 generator = Sequential()
 generator.add(Dense(512*2, input_dim=512, activation='relu'))
 generator.add(Dense(128*8, activation='relu'))
@@ -60,7 +60,7 @@ generator.add(Dense(32768, activation='linear'))
 
 generator.compile(loss='binary_crossentropy', optimizer=sgd)
 
-print "Setting up combined net"
+print ("Setting up combined net")
 gen_dec = Sequential()
 gen_dec.add(generator)
 gen_dec.add(decoder)
@@ -85,13 +85,13 @@ for i in range(100):
     if i % 10 == 0:
         r = gen_dec.fit(zmb,y_gen_dec,epochs=1,verbose=0)
         #print 'E:',np.exp(gen_dec.totals['loss']/batch_size)
-        print i ,' E Loss: ', gen_dec.losses
+        print (i ,' E Loss: ', gen_dec.losses)
     else:
         r = decoder.fit(np.vstack([generator.predict(zmb),xmb]),y_decode,epochs=1,verbose=0)
         #print 'D:',np.exp(gen_dec.totals['loss']/batch_size)
-        print i, ' D Loss: ', gen_dec.losses
+        print (i, ' D Loss: ', gen_dec.losses)
     if i % 10 == 0:
-        print "saving fakes"
+        print ("saving fakes")
         fakes = generator.predict(zmb[:16,:])
         for n in range(16):
             wavfile.write('output/fake_'+str(n+1)+'.mid',44100,fakes[n,:])
