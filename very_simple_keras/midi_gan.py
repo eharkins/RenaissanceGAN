@@ -3,11 +3,12 @@
 import sys, os
 
 os.environ["KERAS_BACKEND"] = "tensorflow"
-#sys.path.append('/home/mccolgan/PyCharm Projects/keras')
-from keras.models import Sequential
-from keras.layers.core import Dense,Dropout
-from keras.optimizers import SGD
-from keras.initializers import normal
+
+# from keras.models import Sequential
+# from keras.layers.core import Dense,Dropout
+# from keras.optimizers import SGD
+# from keras.initializers import normal
+
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
@@ -15,7 +16,6 @@ from matplotlib import pyplot as plt
 from scipy.stats import gaussian_kde
 from scipy.io import wavfile
 
-import midi
 import madmom.utils.midi as md
 
 
@@ -27,11 +27,82 @@ print ("loading data")
 #load midi file
 
 m = md.MIDIFile.from_file("mk.mid")
-data = m.notes()
 
-# f = pydub.AudioSegment.from_wav('old_recording.wav')
-#data = np.fromstring(f._data, np.int16)
-data = data.astype(np.float64).reshape((-1,2))
+# n by 5 array for number of notes
+notes = m.notes()
+
+print ("m.notes is:")
+print (notes)
+
+#testing stuff here
+
+song = md.MIDIFile.from_notes(notes)
+print ("song notes is:")
+print (song.notes())
+song.write("output/whole_song_in_and_out.mid")
+
+
+#number of notes in each data example
+minisong_size = 4
+
+num_songs = int(notes.shape[0]/minisong_size)
+
+
+minisongs = np.empty((num_songs, minisong_size*5))
+
+#convert to 3d array of x by n by 5
+#normalize notes
+
+# print ("num songs: %s" % num_songs)
+# print ("minisongs size: {}".format(minisongs.shape))
+# print ("notes size: {}".format(notes.shape[0]))
+
+for i in range(num_songs):
+    for j in range(minisong_size):
+        #print ("minisong: {} note: {}".format(i, notes[i*minisong_size+j]))
+        # print ("length of array is: {} minisong: {} note:{} note value:{}".format(notes.size,i,j, i*minisong_size+j))
+
+        #start time
+        minisongs[i][0+j] = notes[i*minisong_size+j][0]/7.29166667
+        #pitch
+        minisongs[i][1+j] = (notes[i*minisong_size+j][1]-21)/24
+        #duration
+        minisongs[i][2+j] = notes[i*minisong_size+j][2]/2.08333333
+        #velocity
+        minisongs[i][3+j] = notes[i*minisong_size+j][3]/100
+        #channel
+        minisongs[i][4+j] = notes[i*minisong_size+j][4]
+
+def byteSafe(num):
+    if (num < 0):
+        return 0
+    elif num > 256:
+        return 256
+    else: return num
+
+def reMIDIfy(notes, output):
+    # each note
+    song = np.empty((minisong_size, 5))
+    for j in range(int(minisong_size)):
+        song[j][0] = byteSafe(notes[j+0]*7.29166667)
+        song[j][1] = byteSafe(notes[j+1]*24 + 21)
+        song[j][2] = byteSafe(notes[j+2]*2.08333333)
+        song[j][3] = byteSafe(notes[j+3]*100)
+        #song[j][4] = byteSafe(notes[j+4])
+        #channel - 0-15
+        song[j][4] = 1
+        print ("note {} is: {} ".format(j, song[j]))
+    m = md.MIDIFile.from_notes(song)
+    m.write(output + ".mid")
+
+directory = "output"
+if not os.path.exists(directory):
+    os.makedirs(directory)
+for i in range(num_songs):
+    print ("reMIDIfication time!")
+    reMIDIfy(minisongs[i], directory+"/song_fragment_"+str(i))
+
+data = minisongs.astype(np.float64).reshape((-1,2))
 print (data.shape)
 data = data[:,0]+data[:,1]
 data -= data.min()
