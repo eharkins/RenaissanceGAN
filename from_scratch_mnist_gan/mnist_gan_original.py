@@ -5,6 +5,8 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import h5py
+import sys 
 
 from keras.layers import Input
 from keras.models import Model, Sequential
@@ -28,11 +30,41 @@ np.random.seed(1000)
 randomDim = 100
 
 # Load MNIST data
-(X_train, y_train), (X_test, y_test) = mnist.load_data()
-X_train = (X_train.astype(np.float32) - 127.5)/127.5
-X_train = X_train.reshape(60000, 784)
-# TAKE SMALLER DATASET
-X_train = X_train[:10000]
+# (X_train, y_train), (X_test, y_test) = mnist.load_data()
+# X_train = (X_train.astype(np.float32) - 127.5)/127.5
+# X_train = X_train.reshape(60000, 784)
+# # TAKE SMALLER DATASET
+# X_train = X_train[:10000]
+
+def loadMNIST(dataType):
+    #parameter determines whether data is training or testing
+    size = 10000
+    f = h5py.File("mnist.hdf5", 'r')
+    X = f['x_'+dataType][:size]
+
+    maxes = X.max(axis=0)
+    for i in range(len(maxes)):
+        if maxes[i] == 0:
+            maxes[i] = 0.1
+    X *= 1/maxes
+    # print X.shape
+
+    raw_y = np.array([f['t_'+dataType][:size]]).T
+
+    y = []
+    for row in raw_y:
+        y.append(convertToOneHot(row[0], 10))
+    
+    y = np.array(y)
+
+    print ("MNIST Dataset LOADED")
+    
+    return X
+
+def convertToOneHot(val, size):
+    x = np.zeros(size)
+    x[val] = 0.9
+    return x
 
 # Optimizer
 adam = Adam(lr=0.0002, beta_1=0.5)
@@ -100,7 +132,7 @@ def saveModels(epoch):
     generator.save('models/gan_generator_epoch_%d.h5' % epoch)
     discriminator.save('models/gan_discriminator_epoch_%d.h5' % epoch)
 
-def train(epochs=1, batchSize=128):
+def train(X_train, epochs=1, batchSize=128):
     batchCount = X_train.shape[0] / batchSize
     print ('Epochs:', epochs)
     print ('Batch size:', batchSize)
@@ -139,7 +171,7 @@ def train(epochs=1, batchSize=128):
 
         if e == 1 or e % 20 == 0:
             plotGeneratedImages(e)
-            saveModels(e)
+            # saveModels(e)
 
     # Plot losses from every epoch
     plotLoss(e)
@@ -147,5 +179,6 @@ def train(epochs=1, batchSize=128):
 if __name__ == '__main__':
     epochs = int(sys.argv[1])
     batch_size = int(sys.argv[2])
-    train(epochs, batch_size)
+    X_train = loadMNIST("train")
+    train(X_train, epochs, batch_size)
 
