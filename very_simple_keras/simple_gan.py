@@ -121,6 +121,10 @@ for i in range(10000):
     zmb = np.random.uniform(-1, 1, size=(batch_size, 512)).astype('float32')
     #xmb = np.random.normal(1., 1, size=(batch_size, 1)).astype('float32')
     xmb = np.array([data[n:n+32768] for n in np.random.randint(0,data.shape[0]-32768,batch_size)])
+    print ("data: ", data.shape)
+    print ("zmb: ", zmb.shape)
+    print ("generator.predict(zmb): ", generator.predict(zmb).shape)
+    print("xmb: ", xmb.shape)
     if i % 10 == 0:
         r = gen_dec.fit(zmb,y_gen_dec,epochs=1,verbose=0)
         #print 'E:',np.exp(gen_dec.totals['loss']/batch_size)
