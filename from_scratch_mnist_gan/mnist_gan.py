@@ -5,13 +5,17 @@ import numpy as np
 import h5py
 import math
 import random
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 
 
 #change this directory to where hdf5 file is stored
-DATASETS_DIR = "C:/Users/neel/Documents/Thesis Stuffs/"
+DATASETS_DIR = ""
 def loadMNIST(dataType):
 	#parameter determines whether data is training or testing
-	size = 100
+	size = 10000
 	f = h5py.File(DATASETS_DIR + "mnist.hdf5", 'r')
 	X = f['x_'+dataType][:size]
 
@@ -77,7 +81,7 @@ gan = Model(inputs = gan_input, outputs = gan_output)
 gan.compile(loss = 'binary_crossentropy', optimizer = 'sgd', metrics =['accuracy'])
 
 #method for creating batches of trainable data and training
-def trainGAN(train_data, train_labels, batch_size=5, epochs=1):
+def trainGAN(train_data, train_labels, batch_size=10000, epochs=20):
 	for e in range(epochs): #loop for number of epochs
 		print("epoch: ",e)
 		for b in range(len(train_data)//batch_size): #loop for total number of batches
@@ -103,8 +107,22 @@ def trainGAN(train_data, train_labels, batch_size=5, epochs=1):
 			gan.train_on_batch(gan_x, gan_y)
 	return
 
+def save_generated_images(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
+	noise = np.random.normal(0, 1, size=[examples, noise_vect_size])
+	generatedImages = generator.predict(noise)
+	generatedImages = generatedImages.reshape(examples, 28, 28)
+
+	plt.figure(figsize=figsize)
+	for i in range(generatedImages.shape[0]):
+	    plt.subplot(dim[0], dim[1], i+1)
+	    plt.imshow(generatedImages[i], interpolation='nearest', cmap='gray_r')
+	    plt.axis('off')
+	plt.tight_layout()
+	plt.savefig('images/gan_generated_image_epoch_%d.png' % epoch)
+
 #grabbing all training inputs and labels from hdf5
 x_train, y_train = loadMNIST("train")
 
 #call training function for GAN
-trainGAN(x_train, y_train, batch_size=5, epochs = 1)
+trainGAN(x_train, y_train, batch_size=10000, epochs = 20)
+save_generated_images(1)
