@@ -8,6 +8,7 @@ import random
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import sys
 
 
 
@@ -124,5 +125,7 @@ def save_generated_images(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
 x_train, y_train = loadMNIST("train")
 
 #call training function for GAN
-trainGAN(x_train, y_train, batch_size=10000, epochs = 20)
+batch_size = int(sys.argv[1])
+epochs = int(sys.argv[2])
+trainGAN(x_train, y_train, batch_size=batch_size, epochs = epochs)
 save_generated_images(1)
