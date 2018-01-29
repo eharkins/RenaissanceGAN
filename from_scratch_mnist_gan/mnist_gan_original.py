@@ -1,7 +1,7 @@
 import os
 os.environ["KERAS_BACKEND"] = "tensorflow"
 import numpy as np
-from tqdm import tqdm
+# from tqdm import tqdm
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -108,7 +108,7 @@ def train(epochs=1, batchSize=128):
 
     for e in range(1, epochs+1):
         print ('-'*15, 'Epoch %d' % e, '-'*15)
-        for _ in tqdm(range(int(batchCount))):
+        for _ in range(int(batchCount)):
             # Get a random set of input noise and images
             noise = np.random.normal(0, 1, size=[batchSize, randomDim])
             imageBatch = X_train[np.random.randint(0, X_train.shape[0], size=batchSize)]
