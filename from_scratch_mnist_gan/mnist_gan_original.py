@@ -70,7 +70,7 @@ def convertToOneHot(val, size):
 adam = Adam(lr=0.0002, beta_1=0.5)
 
 generator = Sequential()
-generator.add(Dense(35, input_dim=randomDim, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+generator.add(Dense(100, input_dim=randomDim, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 # generator.add(Dense(512))
 # generator.add(Dense(512))
 # generator.add(Dense(1024))
