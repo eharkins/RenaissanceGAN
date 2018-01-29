@@ -47,32 +47,32 @@ def convertToOneHot(val, size):
 
 	
 #defining noise vector size
-noise_vect_size = 128
+noise_vect_size = 100
 	
 #testing sequential model
 generator = Sequential()
 
 #stacking layers on model
-generator.add(Dense(256, activation = 'relu', input_dim=noise_vect_size))
-generator.add(Dense(512, activation = 'relu'))
-generator.add(Dense(1024, activation = 'relu'))
-generator.add(Dense(784, activation = 'softmax'))
+generator.add(Dense(35, activation = 'sigmoid', input_dim=noise_vect_size))
+# generator.add(Dense(512, activation = 'relu'))
+# generator.add(Dense(1024, activation = 'relu'))
+generator.add(Dense(784, activation = 'sigmoid'))
 
 #compiling loss function and optimizer
-generator.compile(loss = 'binary_crossentropy', optimizer = 'sgd', metrics =['accuracy'])
+generator.compile(loss = 'mse', optimizer = 'sgd', metrics =['accuracy'])
 
 #create discriminator
 discriminator = Sequential()
 
-discriminator.add(Dense(512, activation = 'relu', input_dim=784))
-discriminator.add(Dense(256, activation = 'relu'))
-discriminator.add(Dense(128, activation = 'relu'))
-discriminator.add(Dense(64, activation = 'relu'))
-discriminator.add(Dense(8, activation = 'relu'))
-discriminator.add(Dense(1, activation = 'softmax'))
+discriminator.add(Dense(35, activation = 'sigmoid', input_dim=784))
+# discriminator.add(Dense(256, activation = 'relu'))
+# discriminator.add(Dense(128, activation = 'relu'))
+# discriminator.add(Dense(64, activation = 'relu'))
+# discriminator.add(Dense(8, activation = 'relu'))
+discriminator.add(Dense(1, activation = 'sigmoid'))
 
 #compiling loss function and optimizer
-discriminator.compile(loss = 'binary_crossentropy', optimizer = 'sgd', metrics =['accuracy'])
+discriminator.compile(loss = 'mse', optimizer = 'sgd', metrics =['accuracy'])
 
 #creating the combined model
 gan_input = Input(shape=(noise_vect_size,))
@@ -82,12 +82,14 @@ gan = Model(inputs = gan_input, outputs = gan_output)
 gan.compile(loss = 'binary_crossentropy', optimizer = 'sgd', metrics =['accuracy'])
 
 #method for creating batches of trainable data and training
-def trainGAN(train_data, train_labels, batch_size=10000, epochs=20):
+def trainGAN(train_data, train_labels, epochs=20, batch_size=10000):
+	batchCount = len(train_data) / batch_size
 	for e in range(epochs): #loop for number of epochs
-		print("epoch: ",e)
 		for b in range(len(train_data)//batch_size): #loop for total number of batches
-			print(range(len(train_data)//batch_size))
-			print("batch: ",b)
+
+			print ('Epoch:', e)
+			print ('Batch:', b)
+			print ('Batches per epoch:', batchCount)
 			chosen_data_indexes = np.random.randint(1,train_data.shape[0],size = batch_size)
 			data_x = np.array([train_data[i] for i in chosen_data_indexes]) #get next batch of the right size form training data and converts it to np.array
 			
@@ -106,26 +108,31 @@ def trainGAN(train_data, train_labels, batch_size=10000, epochs=20):
 			gan_x = np.random.random((batch_size,noise_vect_size))
 			gan_y = np.ones(batch_size) #creates an array of ones (expected output)
 			gan.train_on_batch(gan_x, gan_y)
+
+			if e == 1 or e % 5 == 0:
+				plotGeneratedImages(e)
+				# saveModels(e)
+
 	return
 
-def save_generated_images(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
-	noise = np.random.normal(0, 1, size=[examples, noise_vect_size])
-	generatedImages = generator.predict(noise)
-	generatedImages = generatedImages.reshape(examples, 28, 28)
+# Create a wall of generated MNIST images
+def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
+    noise = np.random.normal(0, 1, size=[examples, noise_vect_size])
+    generatedImages = generator.predict(noise)
+    generatedImages = generatedImages.reshape(examples, 28, 28)
 
-	plt.figure(figsize=figsize)
-	for i in range(generatedImages.shape[0]):
-	    plt.subplot(dim[0], dim[1], i+1)
-	    plt.imshow(generatedImages[i], interpolation='nearest', cmap='gray_r')
-	    plt.axis('off')
-	plt.tight_layout()
-	plt.savefig('images/gan_generated_image_epoch_%d.png' % epoch)
+    plt.figure(figsize=figsize)
+    for i in range(generatedImages.shape[0]):
+        plt.subplot(dim[0], dim[1], i+1)
+        plt.imshow(generatedImages[i], interpolation='nearest', cmap='gray_r')
+        plt.axis('off')
+    plt.tight_layout()
+    plt.savefig('images/gan_generated_image_epoch_%d.png' % epoch)
 
 #grabbing all training inputs and labels from hdf5
 x_train, y_train = loadMNIST("train")
 
 #call training function for GAN
-batch_size = int(sys.argv[1])
-epochs = int(sys.argv[2])
-trainGAN(x_train, y_train, batch_size=batch_size, epochs = epochs)
-save_generated_images(1)
+epochs = int(sys.argv[1])
+batch_size = int(sys.argv[2])
+trainGAN(x_train, y_train, epochs = epochs, batch_size=batch_size)

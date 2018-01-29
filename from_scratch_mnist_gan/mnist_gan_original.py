@@ -76,8 +76,8 @@ generator.add(Dense(35, input_dim=randomDim, kernel_initializer=initializers.Ran
 # generator.add(Dense(1024))
 # generator.add(Dense(1024))
 # generator.add(Dense(784))
-generator.add(Dense(784, activation='tanh'))
-generator.compile(loss='binary_crossentropy', optimizer=adam)
+generator.add(Dense(784, activation='sigmoid'))
+generator.compile(loss='mse', optimizer=adam)
 
 discriminator = Sequential()
 discriminator.add(Dense(35, input_dim=784, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
@@ -90,7 +90,7 @@ discriminator.add(Dense(35, input_dim=784, kernel_initializer=initializers.Rando
 # discriminator.add(Dense(256))
 # discriminator.add(Dropout(0.3))
 discriminator.add(Dense(1, activation='sigmoid'))
-discriminator.compile(loss='binary_crossentropy', optimizer=adam)
+discriminator.compile(loss='mse', optimizer=adam)
 
 # Combined network
 discriminator.trainable = False
@@ -111,7 +111,7 @@ def plotLoss(epoch):
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.legend()
-    plt.savefig('images/gan_loss_epoch_%d.png' % epoch)
+    plt.savefig('images_original/gan_loss_epoch_%d.png' % epoch)
 
 # Create a wall of generated MNIST images
 def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
@@ -125,7 +125,8 @@ def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
         plt.imshow(generatedImages[i], interpolation='nearest', cmap='gray_r')
         plt.axis('off')
     plt.tight_layout()
-    plt.savefig('images/gan_generated_image_epoch_%d.png' % epoch)
+    print("**********saving")
+    plt.savefig('images_original/gan_generated_image_epoch_%d.png' % epoch)
 
 # Save the generator and discriminator networks (and weights) for later use
 def saveModels(epoch):
@@ -140,7 +141,7 @@ def train(X_train, epochs=1, batchSize=128):
 
     for e in range(1, epochs+1):
         print ('-'*15, 'Epoch %d' % e, '-'*15)
-        for _ in range(int(batchCount)):
+        for batch in range(int(batchCount)):
             # Get a random set of input noise and images
             noise = np.random.normal(0, 1, size=[batchSize, randomDim])
             imageBatch = X_train[np.random.randint(0, X_train.shape[0], size=batchSize)]
@@ -168,8 +169,10 @@ def train(X_train, epochs=1, batchSize=128):
         # Store loss of most recent batch from this epoch
         dLosses.append(dloss)
         gLosses.append(gloss)
+        print("Discriminator loss: ", dloss)
+        print("Generator loss: ", gloss)
 
-        if e == 1 or e % 20 == 0:
+        if e == 1 or e % 5 == 0:
             plotGeneratedImages(e)
             # saveModels(e)
 
