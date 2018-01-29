@@ -4,10 +4,10 @@ import sys, os
 
 os.environ["KERAS_BACKEND"] = "tensorflow"
 
-# from keras.models import Sequential
-# from keras.layers.core import Dense,Dropout
-# from keras.optimizers import SGD
-# from keras.initializers import normal
+from keras.models import Sequential
+from keras.layers.core import Dense,Dropout
+from keras.optimizers import SGD
+from keras.initializers import normal
 
 import numpy as np
 import matplotlib
@@ -16,7 +16,9 @@ from matplotlib import pyplot as plt
 from scipy.stats import gaussian_kde
 from scipy.io import wavfile
 
-import madmom.utils.midi as md
+from music21 import midi, stream, pitch, note, tempo
+
+
 
 
 batch_size = 32*32
@@ -26,52 +28,84 @@ print ("loading data")
 
 #load midi file
 
-m = md.MIDIFile.from_file("mk.mid")
+mf = midi.MidiFile()
+mf.open(filename = "bach.mid")
+mf.read()
+mf.close()
 
-# n by 5 array for number of notes
-notes = m.notes()
+#read to stream
+print ("reading to stream")
 
-print ("m.notes is:")
-print (notes)
+s = midi.translate.midiFileToStream(mf)
 
-#testing stuff here
+print ("converting to notes")
 
-song = md.MIDIFile.from_notes(notes)
-print ("song notes is:")
-print (song.notes())
-song.write("output/whole_song_in_and_out.mid")
+#convert to notes
+notes = s.flat.notes
+# print ("notes are: ", notes)
+print ("notes length is: ", len(notes))
 
+print ("converting back")
+#convert back
+s1 = stream.Stream(notes)
+
+print ("notes2 length is: ", len(s1.flat.notes))
+
+#write to file
+mf = midi.translate.streamToMidiFile(s1)
+
+print ("writing to file")
+fname = "DATA_SONG.mid"
+
+mf.open(fname, 'wb')
+mf.write()
+mf.close()
+print ("saved as: ", fname)
 
 #number of notes in each data example
-minisong_size = 4
+minisong_size = 8
 
-num_songs = int(notes.shape[0]/minisong_size)
+data_size = 3
+
+num_songs = int(len(notes)/minisong_size)
 
 
-minisongs = np.empty((num_songs, minisong_size*5))
+minisongs = np.empty((num_songs, minisong_size*data_size))
 
 #convert to 3d array of x by n by 5
 #normalize notes
 
-# print ("num songs: %s" % num_songs)
-# print ("minisongs size: {}".format(minisongs.shape))
-# print ("notes size: {}".format(notes.shape[0]))
+#notes is tuple of notes
+
 
 for i in range(num_songs):
     for j in range(minisong_size):
         #print ("minisong: {} note: {}".format(i, notes[i*minisong_size+j]))
         # print ("length of array is: {} minisong: {} note:{} note value:{}".format(notes.size,i,j, i*minisong_size+j))
+        n = notes[i*minisong_size+j]
+        # print ("notes is: ", notes)
+        # print ("n is: ", n, notes[1], notes[2], notes[300])
 
-        #start time
-        minisongs[i][0+j] = notes[i*minisong_size+j][0]/7.29166667
+        # #start time
+        # minisongs[i][0+j] = note.pitch.midi/7.29166667
+        #
         #pitch
-        minisongs[i][1+j] = (notes[i*minisong_size+j][1]-21)/24
+        if not n.isChord:
+            p = (n.pitch.midi-21)/24
+        else:
+            p = (n.pitches[0].midi-21/24)
+        minisongs[i][0+j] = p
+
         #duration
-        minisongs[i][2+j] = notes[i*minisong_size+j][2]/2.08333333
+        #n2.duration
+        minisongs[i][1+j] = n.quarterLength
+
         #velocity
-        minisongs[i][3+j] = notes[i*minisong_size+j][3]/100
-        #channel
-        minisongs[i][4+j] = notes[i*minisong_size+j][4]
+        #n2.volume
+
+        minisongs[i][3+j] = n.volume.velocity/100
+        # #channel
+        # minisongs[i][4+j] = notes[i*minisong_size+j][4]
 
 def byteSafe(num):
     if (num < 0):
@@ -82,25 +116,41 @@ def byteSafe(num):
 
 def reMIDIfy(notes, output):
     # each note
+    s1 = stream.Stream()
+    t = tempo.MetronomeMark('fast', 240, note.Note(type='quarter'))
+    s1.append(t)
     song = np.empty((minisong_size, 5))
     for j in range(int(minisong_size)):
-        song[j][0] = byteSafe(notes[j+0]*7.29166667)
-        song[j][1] = byteSafe(notes[j+1]*24 + 21)
-        song[j][2] = byteSafe(notes[j+2]*2.08333333)
-        song[j][3] = byteSafe(notes[j+3]*100)
-        #song[j][4] = byteSafe(notes[j+4])
-        #channel - 0-15
-        song[j][4] = 1
-        print ("note {} is: {} ".format(j, song[j]))
-    m = md.MIDIFile.from_notes(song)
-    m.write(output + ".mid")
 
-directory = "output"
-if not os.path.exists(directory):
-    os.makedirs(directory)
-for i in range(num_songs):
-    print ("reMIDIfication time!")
-    reMIDIfy(minisongs[i], directory+"/song_fragment_"+str(i))
+        p = pitch.Pitch()
+        p.midi = byteSafe(notes[j+0]*24 + 21)
+        n = note.Note(pitch = p)
+        n.pitch = p
+        n.quarterLength = byteSafe((int(notes[j+1]*8))/8)
+        n.volume.velocity = byteSafe(notes[j+2]*100)
+        #all maximum velocity
+        n.volume.velocity = 255
+        #print ("note {} is: {} ".format(j, note))
+        s1.append(n)
+
+    #add a rest at the end, hopefully this will make it longer
+    r = note.Rest()
+    r.quarterLength = 2.5
+    s1.append(r)
+
+    mf = midi.translate.streamToMidiFile(s1)
+    mf.open(output + ".mid", 'wb')
+    mf.write()
+    mf.close()
+
+
+#printing original song in small pieces
+# directory = "test_output"
+# if not os.path.exists(directory):
+#     os.makedirs(directory)
+# for i in range(num_songs):
+#     print ("reMIDIfication time!")
+#     reMIDIfy(minisongs[i], directory+"/song_fragment_"+str(i))
 
 data = minisongs.astype(np.float64).reshape((-1,2))
 print (data.shape)
@@ -110,9 +160,11 @@ data /= data.max() / 2.
 data -= 1.
 print (data.shape)
 
+input_size = 1024
+
 print ("Setting up decoder")
 decoder = Sequential()
-decoder.add(Dense(512, input_dim=32768, activation='relu'))
+decoder.add(Dense(512, input_dim=input_size, activation='relu'))
 decoder.add(Dropout(0.5))
 decoder.add(Dense(512, activation='relu'))
 decoder.add(Dropout(0.5))
@@ -127,7 +179,9 @@ print ("Setting up generator")
 generator = Sequential()
 generator.add(Dense(512*2, input_dim=512, activation='relu'))
 generator.add(Dense(128*8, activation='relu'))
-generator.add(Dense(32768, activation='linear'))
+generator.add(Dense(input_size, activation='linear'))
+
+#input: 512, output: input_size (2048)
 
 generator.compile(loss='binary_crossentropy', optimizer=sgd)
 
@@ -148,23 +202,41 @@ def gaussian_likelihood(X, u=0., s=1.):
 
 fig = plt.figure()
 
+
+
+directory = "real_output"
+if not os.path.exists(directory):
+    os.makedirs(directory)
+
+print ("number of examples is: ", data.shape)
+
+
 #for i in range(100000):
-for i in range(100):
+for i in range(10000):
     zmb = np.random.uniform(-1, 1, size=(batch_size, 512)).astype('float32')
     #xmb = np.random.normal(1., 1, size=(batch_size, 1)).astype('float32')
-    xmb = np.array([data[n:n+32768] for n in np.random.randint(0,data.shape[0]-32768,batch_size)])
+    #xmb = np.array([data[n:n+input_size] for n in np.random.randint(0,data.shape[0]-input_size,batch_size)])
+    #xmb = np.array([data[n:n+input_size] for n in np.random.randint(0,input_size,batch_size)])
+
+    # print ("data: ", data.shape, ", batch size: ", batch_size)
+    # print ("zmb: ", zmb.shape)
+    # print ("generator.predict(zmb): ", generator.predict(zmb).shape)
+
+    xmb = np.array([data[n:n+input_size] for n in np.random.randint(0,data.shape[0]-input_size,batch_size)])
+    #zmb and xmb need same dimensions
+
+    # print("xmb: ", xmb.shape)
+
     if i % 10 == 0:
         r = gen_dec.fit(zmb,y_gen_dec,epochs=1,verbose=0)
         #print 'E:',np.exp(gen_dec.totals['loss']/batch_size)
         print (i ,' E Loss: ', gen_dec.losses)
-    else:
         r = decoder.fit(np.vstack([generator.predict(zmb),xmb]),y_decode,epochs=1,verbose=0)
         #print 'D:',np.exp(gen_dec.totals['loss']/batch_size)
         print (i, ' D Loss: ', gen_dec.losses)
     if i % 10 == 0:
         print ("saving fakes")
-        fakes = generator.predict(zmb[:16,:])
-        for n in range(16):
-            wavfile.write('output/fake_'+str(n+1)+'.mid',44100,fakes[n,:])
-            wavfile.write('output/real_'+str(n+1)+'.mid',44100,xmb[n,:])
-#        vis(i)
+        fakes = generator.predict(zmb[:4,:])
+        for n in range(4):
+            reMIDIfy(fakes[n,:], directory+"/fake_"+str(i)+"_"+str(n))
+            reMIDIfy(fakes[n,:], directory+"/real_"+str(i)+"_"+str(n))
