@@ -63,7 +63,7 @@ mf.close()
 print ("saved as: ", fname)
 
 #number of notes in each data example
-minisong_size = 30
+minisong_size = 8
 
 data_size = 3
 
@@ -83,8 +83,8 @@ for i in range(num_songs):
         #print ("minisong: {} note: {}".format(i, notes[i*minisong_size+j]))
         # print ("length of array is: {} minisong: {} note:{} note value:{}".format(notes.size,i,j, i*minisong_size+j))
         n = notes[i*minisong_size+j]
-        print ("notes is: ", notes)
-        print ("n is: ", n, notes[1], notes[2], notes[300])
+        # print ("notes is: ", notes)
+        # print ("n is: ", n, notes[1], notes[2], notes[300])
 
         # #start time
         # minisongs[i][0+j] = note.pitch.midi/7.29166667
@@ -126,10 +126,17 @@ def reMIDIfy(notes, output):
         p.midi = byteSafe(notes[j+0]*24 + 21)
         n = note.Note(pitch = p)
         n.pitch = p
-        n.quarterLength = byteSafe(notes[j+1])
+        n.quarterLength = byteSafe((int(notes[j+1]*8))/8)
         n.volume.velocity = byteSafe(notes[j+2]*100)
-        print ("note {} is: {} ".format(j, note))
+        #all maximum velocity
+        n.volume.velocity = 255
+        #print ("note {} is: {} ".format(j, note))
         s1.append(n)
+
+    #add a rest at the end, hopefully this will make it longer
+    r = note.Rest()
+    r.quarterLength = 2.5
+    s1.append(r)
 
     mf = midi.translate.streamToMidiFile(s1)
     mf.open(output + ".mid", 'wb')
@@ -153,7 +160,7 @@ data /= data.max() / 2.
 data -= 1.
 print (data.shape)
 
-input_size = 2048
+input_size = 1024
 
 print ("Setting up decoder")
 decoder = Sequential()
@@ -173,6 +180,8 @@ generator = Sequential()
 generator.add(Dense(512*2, input_dim=512, activation='relu'))
 generator.add(Dense(128*8, activation='relu'))
 generator.add(Dense(input_size, activation='linear'))
+
+#input: 512, output: input_size (2048)
 
 generator.compile(loss='binary_crossentropy', optimizer=sgd)
 
@@ -203,22 +212,31 @@ print ("number of examples is: ", data.shape)
 
 
 #for i in range(100000):
-for i in range(100):
+for i in range(10000):
     zmb = np.random.uniform(-1, 1, size=(batch_size, 512)).astype('float32')
     #xmb = np.random.normal(1., 1, size=(batch_size, 1)).astype('float32')
+    #xmb = np.array([data[n:n+input_size] for n in np.random.randint(0,data.shape[0]-input_size,batch_size)])
+    #xmb = np.array([data[n:n+input_size] for n in np.random.randint(0,input_size,batch_size)])
+
+    # print ("data: ", data.shape, ", batch size: ", batch_size)
+    # print ("zmb: ", zmb.shape)
+    # print ("generator.predict(zmb): ", generator.predict(zmb).shape)
+
     xmb = np.array([data[n:n+input_size] for n in np.random.randint(0,data.shape[0]-input_size,batch_size)])
+    #zmb and xmb need same dimensions
+
+    # print("xmb: ", xmb.shape)
+
     if i % 10 == 0:
         r = gen_dec.fit(zmb,y_gen_dec,epochs=1,verbose=0)
         #print 'E:',np.exp(gen_dec.totals['loss']/batch_size)
         print (i ,' E Loss: ', gen_dec.losses)
-    else:
         r = decoder.fit(np.vstack([generator.predict(zmb),xmb]),y_decode,epochs=1,verbose=0)
         #print 'D:',np.exp(gen_dec.totals['loss']/batch_size)
         print (i, ' D Loss: ', gen_dec.losses)
     if i % 10 == 0:
         print ("saving fakes")
-        fakes = generator.predict(zmb[:16,:])
-        for n in range(16):
-            reMIDIfy(fakes[n,:], directory+"/fake_"+str(n))
-            reMIDIfy(fakes[n,:], directory+"/real_"+str(n))
-        vis(i)
+        fakes = generator.predict(zmb[:4,:])
+        for n in range(4):
+            reMIDIfy(fakes[n,:], directory+"/fake_"+str(i)+"_"+str(n))
+            reMIDIfy(fakes[n,:], directory+"/real_"+str(i)+"_"+str(n))
