@@ -6,7 +6,8 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import h5py
-import sys 
+import sys
+import cv2
 
 from keras.layers import Input
 from keras.models import Model, Sequential
@@ -29,6 +30,9 @@ np.random.seed(1000)
 # The dimensionality has been left at 100 for consistency with other GAN implementations.
 randomDim = 100
 
+#imageDim = 28
+imageDim = 19
+
 # Load MNIST data
 # (X_train, y_train), (X_test, y_test) = mnist.load_data()
 # X_train = (X_train.astype(np.float32) - 127.5)/127.5
@@ -36,30 +40,42 @@ randomDim = 100
 # # TAKE SMALLER DATASET
 # X_train = X_train[:10000]
 
-def loadMNIST(dataType):
-    #parameter determines whether data is training or testing
-    size = 10000
-    f = h5py.File("mnist.hdf5", 'r')
-    X = f['x_'+dataType][:size]
 
-    maxes = X.max(axis=0)
-    for i in range(len(maxes)):
-        if maxes[i] == 0:
-            maxes[i] = 0.1
-    X *= 1/maxes
-    # print X.shape
-
-    raw_y = np.array([f['t_'+dataType][:size]]).T
-
-    y = []
-    for row in raw_y:
-        y.append(convertToOneHot(row[0], 10))
-    
-    y = np.array(y)
-
-    print ("MNIST Dataset LOADED")
-    
+def loadFaces():
+    size = 2429
+    #size = 10000
+    f = h5py.File("faces.hdf5", 'r')
+    X = f['data'][:size]
     return X
+
+# def loadMNIST(dataType):
+#     #parameter determines whether data is training or testing
+#     size = 10000
+#     f = h5py.File("mnist.hdf5", 'r')
+#     #f = h5py.File("faces.hdf5", 'r')
+#     #X = f['data'][:size]
+#     X = f['x_'+dataType][:size]
+#
+#     maxes = X.max(axis=0)
+#     for i in range(len(maxes)):
+#         if maxes[i] == 0:
+#             maxes[i] = 0.1
+#     X *= 1/maxes
+#     # print X.shape
+#
+#     raw_y = np.array([f['t_'+dataType][:size]]).T
+#     #raw_y = np.array([f['data'][:size]]).T
+#
+#     y = []
+#     for row in raw_y:
+#         #row 0 should be integer
+#         y.append(convertToOneHot(row[0], 10))
+#
+#     y = np.array(y)
+#
+#     print ("MNIST Dataset LOADED")
+#
+#     return X
 
 def convertToOneHot(val, size):
     x = np.zeros(size)
@@ -73,11 +89,11 @@ generator = Sequential()
 generator.add(Dense(200, input_dim=randomDim, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 generator.add(Dense(200))
 generator.add(Dense(200))
-generator.add(Dense(784, activation='sigmoid'))
+generator.add(Dense(imageDim**2, activation='sigmoid'))
 generator.compile(loss='mse', optimizer=adam)
 
 discriminator = Sequential()
-discriminator.add(Dense(35, input_dim=784, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+discriminator.add(Dense(35, input_dim=imageDim**2, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 discriminator.add(Dense(1, activation='sigmoid'))
 discriminator.compile(loss='mse', optimizer=adam)
 
@@ -101,12 +117,13 @@ def plotLoss(epoch):
     plt.ylabel('Loss')
     plt.legend()
     plt.savefig('images_original/gan_loss_epoch_%d.png' % epoch)
+    print ("Saving loss graph as images_original/gan_loss_epoch_%d.png" % epoch)
 
 # Create a wall of generated MNIST images
 def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
     noise = np.random.normal(0, 1, size=[examples, randomDim])
     generatedImages = generator.predict(noise)
-    generatedImages = generatedImages.reshape(examples, 28, 28)
+    generatedImages = generatedImages.reshape(examples, imageDim, imageDim)
 
     plt.figure(figsize=figsize)
     for i in range(generatedImages.shape[0]):
@@ -154,6 +171,7 @@ def train(X_train, epochs=1, batchSize=128):
             yGen = np.ones(batchSize)
             discriminator.trainable = False
             gloss = gan.train_on_batch(noise, yGen)
+            visualizeOne()
 
         # Store loss of most recent batch from this epoch
         dLosses.append(dloss)
@@ -161,16 +179,35 @@ def train(X_train, epochs=1, batchSize=128):
         print("Discriminator loss: ", dloss)
         print("Generator loss: ", gloss)
 
-        if e == 1 or e % 5 == 0:
-            plotGeneratedImages(e)
+
+        # if e == 1 or e % 5 == 0:
+        #     plotGeneratedImages(e)
             # saveModels(e)
 
     # Plot losses from every epoch
     plotLoss(e)
 
+magnification = 10
+
+#seed= np.random.rand(noise_vect_size)
+seed = np.random.normal(0, 1, size=[1, randomDim])
+print ("seed: ", seed.shape)
+
+def generateImage(arr):
+	img = np.reshape(arr, (imageDim, imageDim))
+	res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+	return res
+
+def visualizeOne():
+	arr = generator.predict(seed)
+	res = generateImage(arr)
+	cv2.imshow('Generated Image', res) # on windows, i had to install xming
+	if cv2.waitKey(1) & 0xFF == ord('q'):
+		sys.exit(0)
+
 if __name__ == '__main__':
     epochs = int(sys.argv[1])
     batch_size = int(sys.argv[2])
-    X_train = loadMNIST("train")
+    #X_train = loadMNIST("train")
+    X_train = loadFaces()
     train(X_train, epochs, batch_size)
-

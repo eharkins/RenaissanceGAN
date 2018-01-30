@@ -9,7 +9,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import sys
-
+import cv2
 
 
 #change this directory to where hdf5 file is stored
@@ -32,23 +32,23 @@ def loadMNIST(dataType):
 	y = []
 	for row in raw_y:
 		y.append(convertToOneHot(row[0], 10))
-	
+
 	y = np.array(y)
 
 	print ("MNIST Dataset LOADED")
-	
+
 	return X, y
 
 def convertToOneHot(val, size):
     x = np.zeros(size)
     x[val] = 0.9
     return x
-	
 
-	
+
+
 #defining noise vector size
 noise_vect_size = 100
-	
+
 #testing sequential model
 generator = Sequential()
 
@@ -92,7 +92,7 @@ def trainGAN(train_data, train_labels, epochs=20, batch_size=10000):
 			print ('Batches per epoch:', batchCount)
 			chosen_data_indexes = np.random.randint(1,train_data.shape[0],size = batch_size)
 			data_x = np.array([train_data[i] for i in chosen_data_indexes]) #get next batch of the right size form training data and converts it to np.array
-			
+
 			#train discriminatorr
 			generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
 			discriminator.trainable = True
@@ -101,7 +101,7 @@ def trainGAN(train_data, train_labels, epochs=20, batch_size=10000):
 			discriminator_y = np.zeros(2*batch_size)
 			discriminator_y[:batch_size] = 0.9
 			discriminator.train_on_batch(discriminator_x,discriminator_y)
-			
+
 			#train generator
 			discriminator.trainable=False
 			gan.compile(loss = 'binary_crossentropy', optimizer = 'sgd', metrics =['accuracy'])
@@ -109,11 +109,37 @@ def trainGAN(train_data, train_labels, epochs=20, batch_size=10000):
 			gan_y = np.ones(batch_size) #creates an array of ones (expected output)
 			gan.train_on_batch(gan_x, gan_y)
 
+
+			visualizeOne()
 			if e == 1 or e % 5 == 0:
 				plotGeneratedImages(e)
 				# saveModels(e)
 
 	return
+
+
+magnification = 10
+
+#seed= np.random.rand(noise_vect_size)
+seed = np.random.normal(0, 1, size=[1, noise_vect_size])
+print ("seed: ", seed.shape)
+
+def generateImage(arr):
+	img = np.reshape(arr, (28, 28))
+	res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+	return res
+
+def visualizeOne():
+	arr = generator.predict(seed)
+	print ("shape of arr: ",arr.shape)
+	res = generateImage(arr)
+	cv2.imshow('Generated Image', res) # on windows, i had to install xming
+	print ("showing image")
+	if cv2.waitKey(1) & 0xFF == ord('q'):
+		sys.exit(0)
+	print ("drawn")
+# time.sleep(.1)
+
 
 # Create a wall of generated MNIST images
 def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
