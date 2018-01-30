@@ -34,7 +34,7 @@ randomDim = 100
 
 
 # Number of notes in each data example
-minisong_size = 9
+minisong_size = 8
 
 # Number of data in each note: pitch, length, and veocity. Velocity is currently auto-set to 100.
 note_size = 3
@@ -86,7 +86,7 @@ def loadMidi():
             # #channel
             # minisongs[i][4+j] = notes[i*minisong_size+j][4]
 
-        return minisongs
+    return minisongs
 
 
 def byteSafe(num):
@@ -126,56 +126,21 @@ def reMIDIfy(notes, output):
     mf.close()
 
 def saveMidi(notesData, epoch):
-    # print(notesData)
-    # x = tf.placeholder(tf.float32, shape = (8, 10))
-    # #notes = generator.eval(( feed_dict={self.z: self.sample_z}))
-    # notes = generator.eval(feed_dict={x: np.array((8,10))},  tf.Session())
-    #convert to numpy array
-    #convert to midi
-    # print(notesData)
 
-    print(len(notesData))
-    print(len(notesData[0]))
     directory = "midi_output"
     if not os.path.exists(directory):
         os.makedirs(directory)
     for x in range(len(notesData)):
         reMIDIfy(notesData[x], directory+"/song_"+str(epoch)+"_"+str(x))
-        # songNotes = batchToNotes(notesData[x])
-        # m = md.MIDIFile.from_notes(songNotes)
-        # # print(songNotes)
-        # #save to file
-        # filename = str(x)
-        # m.write("song" + filename + ".mid")
 
-# def loadMNIST(dataType):
-#     #parameter determines whether data is training or testing
-#     size = 10000
-#     f = h5py.File("mnist.hdf5", 'r')
-#     #f = h5py.File("faces.hdf5", 'r')
-#     #X = f['data'][:size]
-#     X = f['x_'+dataType][:size]
-#
-#     maxes = X.max(axis=0)
-#     for i in range(len(maxes)):
-#         if maxes[i] == 0:
-#             maxes[i] = 0.1
-#     X *= 1/maxes
-#     # print X.shape
-#
-#     raw_y = np.array([f['t_'+dataType][:size]]).T
-#     #raw_y = np.array([f['data'][:size]]).T
-#
-#     y = []
-#     for row in raw_y:
-#         #row 0 should be integer
-#         y.append(convertToOneHot(row[0], 10))
-#
-#     y = np.array(y)
-#
-#     print ("MNIST Dataset LOADED")
-#
 
+def writeCutSongs(notesData):
+
+    directory = "midi_input"
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    for x in range(len(notesData)):
+        reMIDIfy(notesData[x], directory+"/input_song_"+str(x))
 
 # Optimizer
 adam = Adam(lr=0.0002, beta_1=0.5)
@@ -216,8 +181,8 @@ def plotLoss(epoch):
 
 
 # Create a wall of images, use with Xtrain to display input data
-def plotImages(images, examples=100, dim=(10, 10), figsize=(10, 10)):
-    images = images[0:100].reshape(examples, minisong_size, note_size)
+def plotImages(images, file_name, examples=100, dim=(10, 10), figsize=(10, 10)):
+    images = images[0:examples].reshape(examples, minisong_size, note_size)
     plt.figure(figsize=figsize)
     for i in range(images.shape[0]):
         plt.subplot(dim[0], dim[1], i+1)
@@ -225,7 +190,7 @@ def plotImages(images, examples=100, dim=(10, 10), figsize=(10, 10)):
         plt.axis('off')
     plt.tight_layout()
     print("**********saving")
-    plt.savefig('midi_output/input_data_.png')
+    plt.savefig(file_name+'.png')
 
 
 
@@ -243,6 +208,12 @@ def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
         plt.axis('off')
     plt.tight_layout()
     print("**********saving")
+
+    directory = "midi_output"
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+
     plt.savefig('midi_output/gan_generated_image_epoch_%d.png' % epoch)
 
 # Save the generator and discriminator networks (and weights) for later use
@@ -294,10 +265,11 @@ def train(X_train, epochs=1, batchSize=128):
 
 
         if e == 1 or e % 5 == 0:
-            plotGeneratedImages(e)
             # saveModels(e)
             arr = generator.predict(seed)
             saveMidi(arr, e)
+            if e % 50 == 0:
+                plotGeneratedImages(e)
 
     # Plot losses from every epoch
     plotLoss(e)
@@ -306,12 +278,12 @@ magnification = 10
 
 #seed= np.random.rand(noise_vect_size)
 seed = np.random.normal(0, 1, size=[1, randomDim])
-print ("seed: ", seed.shape)
 
 if __name__ == '__main__':
     epochs = int(sys.argv[1])
     batch_size = int(sys.argv[2])
     #X_train = loadMNIST("train")
     X_train = loadMidi()
-    plotImages(X_train)
+    writeCutSongs(X_train)
+    plotImages(X_train, "midi_input/input_data")
     train(X_train, epochs, batch_size)
