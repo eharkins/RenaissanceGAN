@@ -41,6 +41,24 @@ def loadMNIST(dataType):
 
 	return X
 
+#generate mnist input images_original
+def plotMNISTInput(arr, dim=(10, 10), figsize=(10, 10), numberOfFpngs=100):
+	#look at input MNIST
+	print("should be generating image")
+	generatedImages = arr.reshape(len(arr), 28, 28)
+
+	plt.figure(figsize=figsize)
+	for j in range(100):
+		plt.figure(figsize=figsize)
+		i=0
+		print(i)
+		for i in range(generatedImages.shape[0]//numberOfFpngs):
+			plt.subplot(dim[0], dim[1], i+1)
+			plt.imshow(generatedImages[i+j*numberOfFpngs], interpolation='nearest', cmap='gray_r')
+			plt.axis('off')
+		plt.tight_layout()
+		plt.savefig('images/from_MNIST_dataset%d.png' %j)
+
 
 #defining noise vector size
 noise_vect_size = 784
@@ -137,11 +155,11 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 		dLosses.append(dloss)
 		gLosses.append(gloss)
 		print("Discriminator loss: ", dloss)
-		print("Generator loss: ", gloss) 
+		print("Generator loss: ", gloss)
 			# if e == 1 or e % 5 == 0:
 		#      plotGeneratedImages(e)
 		#      saveModels(e)
-			 
+
 	plotLoss(e)
 
 	return
