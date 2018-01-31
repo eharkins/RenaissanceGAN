@@ -22,10 +22,22 @@ import os
 os.environ["KERAS_BACKEND"] = "tensorflow"
 
 
+#side of each image
+imageDim = 28
+# imageDim = 19
 
 #change this directory to where hdf5 file is stored
-# DATASETS_DIR = ""
 DATASETS_DIR = os.path.dirname(os.path.realpath(__file__))
+
+
+def loadFaces():
+    size = 2429
+    #size = 10000
+    f = h5py.File("faces.hdf5", 'r')
+    X = f['data'][:size]
+    return X
+
+
 def loadMNIST(dataType):
 	#parameter determines whether data is training or testing
 	size = 10000
@@ -42,6 +54,24 @@ def loadMNIST(dataType):
 
 	return X
 
+#generate mnist input images_original
+def plotMNISTInput(arr, dim=(10, 10), figsize=(10, 10), numberOfFpngs=100):
+	#look at input MNIST
+	print("should be generating image")
+	generatedImages = arr.reshape(len(arr), 28, 28)
+
+	plt.figure(figsize=figsize)
+	for j in range(100):
+		plt.figure(figsize=figsize)
+		i=0
+		print(i)
+		for i in range(generatedImages.shape[0]//numberOfFpngs):
+			plt.subplot(dim[0], dim[1], i+1)
+			plt.imshow(generatedImages[i+j*numberOfFpngs], interpolation='nearest', cmap='gray_r')
+			plt.axis('off')
+		plt.tight_layout()
+		plt.savefig('images/from_MNIST_dataset%d.png' %j)
+
 
 #defining noise vector size
 noise_vect_size = 784
@@ -55,10 +85,9 @@ adam = Adam(lr=0.0002, beta_1=0.5)
 generator = Sequential()
 
 #stacking layers on model
-# generator.add(Dense(35, activation = 'sigmoid', input_dim=noise_vect_size))
 generator.add(Dense(35, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 # generator.add(Dense(35, activation = 'sigmoid'))
-generator.add(Dense(784, activation = 'sigmoid'))
+generator.add(Dense(imageDim**2, activation = 'sigmoid'))
 
 #compiling loss function and optimizer
 generator.compile(loss = 'mse', optimizer = adam)
@@ -66,8 +95,7 @@ generator.compile(loss = 'mse', optimizer = adam)
 #create discriminator
 discriminator = Sequential()
 
-# discriminator.add(Dense(35, activation = 'sigmoid', input_dim=784))
-discriminator.add(Dense(35, activation = 'sigmoid', input_dim=784, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+discriminator.add(Dense(35, activation = 'sigmoid', input_dim=imageDim**2, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 discriminator.add(Dense(35, activation = 'sigmoid'))
 discriminator.add(Dense(1, activation = 'sigmoid'))
 
@@ -137,11 +165,11 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 		dLosses.append(dloss)
 		gLosses.append(gloss)
 		print("Discriminator loss: ", dloss)
-		print("Generator loss: ", gloss) 
+		print("Generator loss: ", gloss)
 			# if e == 1 or e % 5 == 0:
 		#      plotGeneratedImages(e)
 		#      saveModels(e)
-			 
+
 	plotLoss(e)
 
 	return
@@ -154,7 +182,7 @@ seed = np.random.normal(0, 1, size=[1, noise_vect_size])
 print ("seed: ", seed.shape)
 
 def generateImage(arr):
-	img = np.reshape(arr, (28, 28))
+	img = np.reshape(arr, (imageDim, imageDim))
 	res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
 	return res
 
@@ -174,7 +202,7 @@ def visualizeOne():
 def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
 		noise = np.random.normal(0, 1, size=[examples, noise_vect_size])
 		generatedImages = generator.predict(noise)
-		generatedImages = generatedImages.reshape(examples, 28, 28)
+		generatedImages = generatedImages.reshape(examples, imageDim, imageDim)
 
 		plt.figure(figsize=figsize)
 		for i in range(generatedImages.shape[0]):
@@ -189,5 +217,5 @@ if __name__ == '__main__':
 	epochs = int(sys.argv[1])
 	batch_size = int(sys.argv[2])
 	#X_train = loadMNIST("train")
-	x_train = loadMNIST("train")
+	x_train = loadFaces()
 	trainGAN(x_train, epochs = epochs, batch_size=batch_size)
