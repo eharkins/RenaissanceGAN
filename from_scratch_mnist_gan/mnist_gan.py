@@ -19,9 +19,20 @@ import matplotlib.pyplot as plt
 import sys
 import cv2
 
+#side of each image
+imageDim = 19 #28
 
 #change this directory to where hdf5 file is stored
 DATASETS_DIR = ""
+
+def loadFaces():
+    size = 2429
+    #size = 10000
+    f = h5py.File("faces.hdf5", 'r')
+    X = f['data'][:size]
+    return X
+
+
 def loadMNIST(dataType):
 	#parameter determines whether data is training or testing
 	size = 10000
@@ -52,7 +63,7 @@ generator = Sequential()
 generator.add(Dense(200, input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 generator.add(Dense(200))
 generator.add(Dense(200))
-generator.add(Dense(784, activation = 'sigmoid'))
+generator.add(Dense(imageDim**2, activation = 'sigmoid'))
 
 #compiling loss function and optimizer
 generator.compile(loss = 'mse', optimizer = 'sgd', metrics =['accuracy'])
@@ -61,11 +72,11 @@ generator.compile(loss = 'mse', optimizer = 'sgd', metrics =['accuracy'])
 discriminator = Sequential()
 
 # discriminator.add(Dense(35, activation = 'sigmoid', input_dim=784))
-discriminator.add(Dense(35, input_dim=784, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+discriminator.add(Dense(35, input_dim=imageDim**2, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 discriminator.add(Dense(1, activation = 'sigmoid'))
 
 #compiling loss function and optimizer
-discriminator.compile(loss = 'mse', optimizer = 'sgd', metrics =['accuracy'])
+discriminator.compile(loss = 'mse', optimizer = 'sgd')
 
 #creating the combined model
 discriminator.trainable = False
@@ -73,7 +84,7 @@ gan_input = Input(shape=(noise_vect_size,))
 discrimInput = generator(gan_input)
 gan_output = discriminator(discrimInput)
 gan = Model(inputs = gan_input, outputs = gan_output)
-gan.compile(loss = 'binary_crossentropy', optimizer = 'sgd', metrics =['accuracy'])
+gan.compile(loss = 'binary_crossentropy', optimizer = 'sgd')
 
 dLosses = []
 gLosses = []
@@ -81,7 +92,7 @@ gLosses = []
 def plotLoss(epoch):
 	plt.figure(figsize=(10, 8))
 	plt.plot(dLosses, label='Discriminitive loss')
-	# plt.plot(gLosses, label='Generative loss')
+	plt.plot(gLosses, label='Generative loss')
 	plt.xlabel('Epoch')
 	plt.ylabel('Loss')
 	plt.legend()
@@ -103,6 +114,7 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 
 			#train discriminator
 			generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
+			#generated_x = generator.predict(np.random.normal(0, 1, size=[batch_size, noise_vect_size]))
 			# gan.compile(loss = 'binary_crossentropy', optimizer = 'sgd', metrics =['accuracy'])
 			discriminator_x = np.concatenate((data_x, generated_x))#concatenate takes a tuple as input
 			discriminator_y = np.zeros(2*batch_size)
@@ -121,11 +133,11 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 		dLosses.append(dloss)
 		gLosses.append(gloss)
 		print("Discriminator loss: ", dloss)
-		print("Generator loss: ", gloss) 
+		print("Generator loss: ", gloss)
 			# if e == 1 or e % 5 == 0:
 		#      plotGeneratedImages(e)
 		#      saveModels(e)
-			 
+
 	plotLoss(e)
 
 	return
@@ -138,7 +150,7 @@ seed = np.random.normal(0, 1, size=[1, noise_vect_size])
 print ("seed: ", seed.shape)
 
 def generateImage(arr):
-	img = np.reshape(arr, (28, 28))
+	img = np.reshape(arr, (imageDim, imageDim))
 	res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
 	return res
 
@@ -158,7 +170,7 @@ def visualizeOne():
 def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
 		noise = np.random.normal(0, 1, size=[examples, noise_vect_size])
 		generatedImages = generator.predict(noise)
-		generatedImages = generatedImages.reshape(examples, 28, 28)
+		generatedImages = generatedImages.reshape(examples, imageDim, imageDim)
 
 		plt.figure(figsize=figsize)
 		for i in range(generatedImages.shape[0]):
@@ -174,5 +186,5 @@ if __name__ == '__main__':
 	epochs = int(sys.argv[1])
 	batch_size = int(sys.argv[2])
 	#X_train = loadMNIST("train")
-	x_train = loadMNIST("train")
+	x_train = loadFaces()
 	trainGAN(x_train, epochs = epochs, batch_size=batch_size)
