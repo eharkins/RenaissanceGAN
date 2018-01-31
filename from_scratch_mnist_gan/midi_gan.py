@@ -61,7 +61,11 @@ def loadMidi():
         for j in range(minisong_size):
             #print ("minisong: {} note: {}".format(i, notes[i*minisong_size+j]))
             # print ("length of array is: {} minisong: {} note:{} note value:{}".format(notes.size,i,j, i*minisong_size+j))
-            n = notes[i*minisong_size+j]
+            #n = notes[i*minisong_size+j]
+
+            n = notes[j] #testing with one song for whole dataset
+
+
             # print ("notes is: ", notes)
             # print ("n is: ", n, notes[1], notes[2], notes[300])
 
@@ -69,15 +73,19 @@ def loadMidi():
             # minisongs[i][0+j] = note.pitch.midi/7.29166667
             #
             #pitch
+            # between 0 and 127
             if not n.isChord:
-                p = (n.pitch.midi-21)/24
+                p = (n.pitch.midi)/127
             else:
-                p = (n.pitches[0].midi-21/24)
+                p = (n.pitches[0].midi)/127
             minisongs[i][0+j] = p
 
             #duration
             #n2.duration
-            minisongs[i][1+j] = n.quarterLength
+            minisongs[i][1+j] = n.quarterLength/2
+
+
+            print ("note ", j, " pitch: ", p ," quater length: ", n.quarterLength)
 
             #velocity
             #n2.volume
@@ -105,10 +113,11 @@ def reMIDIfy(notes, output):
     for j in range(int(minisong_size)):
 
         p = pitch.Pitch()
-        p.midi = byteSafe(notes[j+0]*24 + 21)
+        #p.midi = byteSafe(notes[j+0]*24 + 21)
+        p.midi = notes[j+0]*127
         n = note.Note(pitch = p)
         n.pitch = p
-        n.quarterLength = byteSafe((int(notes[j+1]*8))/8)
+        n.quarterLength = byteSafe((int(notes[j+1]*2)))
         n.volume.velocity = byteSafe(notes[j+2]*100)
         #all maximum velocity
         n.volume.velocity = 255
@@ -117,7 +126,7 @@ def reMIDIfy(notes, output):
 
     #add a rest at the end, hopefully this will make it longer
     r = note.Rest()
-    r.quarterLength = 2.5
+    r.quarterLength = 4
     s1.append(r)
 
     mf = midi.translate.streamToMidiFile(s1)
@@ -177,7 +186,7 @@ def plotLoss(epoch):
     plt.ylabel('Loss')
     plt.legend()
     plt.savefig('midi_output/gan_loss_epoch_%d.png' % epoch)
-    print ("Saving loss graph as images_original/gan_loss_epoch_%d.png" % epoch)
+    print ("Saving loss graph as midi_output/gan_loss_epoch_%d.png" % epoch)
 
 
 # Create a wall of images, use with Xtrain to display input data
