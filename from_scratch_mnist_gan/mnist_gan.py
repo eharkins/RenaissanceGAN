@@ -24,11 +24,12 @@ os.environ["KERAS_BACKEND"] = "tensorflow"
 
 
 #change this directory to where hdf5 file is stored
-DATASETS_DIR = ""
+# DATASETS_DIR = ""
+DATASETS_DIR = os.path.dirname(os.path.realpath(__file__))
 def loadMNIST(dataType):
 	#parameter determines whether data is training or testing
 	size = 10000
-	f = h5py.File(DATASETS_DIR + "mnist.hdf5", 'r')
+	f = h5py.File(DATASETS_DIR + "/mnist.hdf5", 'r')
 	X = f['x_'+dataType][:size]
 	maxes = X.max(axis=0)
 	for i in range(len(maxes)):
@@ -55,9 +56,8 @@ generator = Sequential()
 
 #stacking layers on model
 # generator.add(Dense(35, activation = 'sigmoid', input_dim=noise_vect_size))
-generator.add(Dense(35, input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
-# generator.add(Dense(35))
-# generator.add(Dense(35))
+generator.add(Dense(35, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+# generator.add(Dense(35, activation = 'sigmoid'))
 generator.add(Dense(784, activation = 'sigmoid'))
 
 #compiling loss function and optimizer
@@ -67,8 +67,8 @@ generator.compile(loss = 'mse', optimizer = adam)
 discriminator = Sequential()
 
 # discriminator.add(Dense(35, activation = 'sigmoid', input_dim=784))
-discriminator.add(Dense(35, input_dim=784, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
-# discriminator.add(Dense(50))
+discriminator.add(Dense(35, activation = 'sigmoid', input_dim=784, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+discriminator.add(Dense(35, activation = 'sigmoid'))
 discriminator.add(Dense(1, activation = 'sigmoid'))
 
 #compiling loss function and optimizer
@@ -185,7 +185,6 @@ def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
 		plt.savefig('images/gan_generated_image_epoch_%d.png' % epoch)
 
 #grabbing all training inputs and begin training
-batch_size = int(sys.argv[2])
 if __name__ == '__main__':
 	epochs = int(sys.argv[1])
 	batch_size = int(sys.argv[2])
