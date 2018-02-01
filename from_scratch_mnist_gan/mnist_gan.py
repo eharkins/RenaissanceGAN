@@ -2,7 +2,7 @@ from keras.layers import Input
 from keras.models import Model, Sequential
 from keras.layers.core import Reshape, Dense, Dropout, Flatten
 from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import Convolution2D, UpSampling2D
+from keras.layers.convolutional import Convolution2D, UpSampling2D, Conv2D
 from keras.layers.normalization import BatchNormalization
 from keras.datasets import mnist
 from keras.optimizers import Adam
@@ -88,6 +88,7 @@ generator = Sequential()
 #stacking layers on model
 generator.add(Dense(35, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 # generator.add(Dense(35, activation = 'sigmoid'))
+generator.add(Conv2D(64, kernel_size=(5, 5), padding='same'))
 generator.add(Dense(imageDim**2, activation = 'sigmoid'))
 
 #compiling loss function and optimizer
