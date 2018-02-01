@@ -2,7 +2,7 @@ from keras.layers import Input
 from keras.models import Model, Sequential
 from keras.layers.core import Reshape, Dense, Dropout, Flatten
 from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import Convolution2D, UpSampling2D
+from keras.layers.convolutional import Convolution2D, UpSampling2D, Conv2D, MaxPooling2D
 from keras.layers.normalization import BatchNormalization
 from keras.datasets import mnist
 from keras.optimizers import Adam
@@ -25,9 +25,17 @@ os.environ["KERAS_BACKEND"] = "tensorflow"
 # input_dir = "fungi_sprites"
 # output_dir = "fungi_generated"
 
-input_dir = "color/flower_sprites"
-output_dir = "color/flower_generated"
+# input_dir = "color/flower_sprites"
+# output_dir = "color/flower_decon_generated"
 
+# input_dir = "color/sprites"
+# output_dir = "color/sprites_generated"
+
+input_dir = "color/monsters"
+output_dir = "color/monsters_generated"
+
+# input_dir = "color/mask_sprites"
+# output_dir = "color/masks_generated"
 
 #side of each image
 #imageDim = 28
@@ -76,8 +84,9 @@ def plotMNISTInput(arr, dim=(10, 10), figsize=(10, 10), numberOfFpngs=100):
             plt.subplot(dim[0], dim[1], i+1)
             plt.imshow(generatedImages[i+j*numberOfFpngs], interpolation='nearest', cmap='gray_r')
             plt.axis('off')
-        plt.tight_layout()
-        plt.savefig(output_dir + '/from_MNIST_dataset%d.png' %j)
+    plt.tight_layout()
+    plt.savefig(output_dir + '/from_MNIST_dataset%d.png' %j)
+    plt.close()
 
 
 def generateImage(arr):
@@ -140,29 +149,45 @@ noise_vect_size = 10
 np.random.seed(1000)
 
 # Optimizer
-adam = Adam(lr=0.0002, beta_1=0.5)
+#adam = Adam(lr=0.0002, beta_1=0.5)
+#adam = Adam(lr=0.00002, beta_1=0.5)
+adam = Adam(lr=0.0001, beta_1=0.5)
 
 #testing sequential model
 generator = Sequential()
 
 #stacking layers on model
+#generator.add(Conv2D(filters, kernel_size, strides=1,
 generator.add(Dense(35, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 generator.add(Dropout(.1))
-generator.add(Dense(35, activation = 'sigmoid'))
-generator.add(Dropout(.1))
+#generator.add(Dense(35, activation = 'sigmoid'))
+#generator.add(Dense(50, activation = 'sigmoid'))
+#generator.add(Dropout(.1))
 #generator.add(Dense(10, activation = 'sigmoid'))
 # generator.add(Dense(35, activation = 'sigmoid'))
 generator.add(Dense(imageDim**2*3, activation = 'sigmoid'))
+generator.add(Dropout(.1))
+generator.add(Reshape((imageDim, imageDim, 3), input_shape=(imageDim**2*3,)))
+generator.add(Conv2D(35, (3, 3), padding='same'))
+generator.add(Conv2D(3, (3, 3), padding='same'))
+generator.add(Flatten())
 
 #compiling loss function and optimizer
 generator.compile(loss = 'mse', optimizer = adam)
 
 #create discriminator
 discriminator = Sequential()
+discriminator.add(Reshape((imageDim, imageDim, 3), input_shape=(imageDim**2*3,)))
+discriminator.add(Conv2D(35, (3, 3), padding='same', input_shape=(imageDim, imageDim, 3)))
+discriminator.add(MaxPooling2D(pool_size=(2, 2)))
+discriminator.add(Conv2D(35, (3, 3), padding='same'))
+discriminator.add(MaxPooling2D(pool_size=(2, 2)))
+discriminator.add(Flatten())
 
 discriminator.add(Dense(35, activation = 'sigmoid', input_dim=imageDim**2*3, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 # generator.add(Dropout(.5))
-discriminator.add(Dense(10, activation = 'sigmoid'))
+# discriminator.add(Dense(35, activation = 'sigmoid'))
+# discriminator.add(Dense(35, activation = 'sigmoid'))
 # generator.add(Dropout(.5))
 # discriminator.add(Dense(35, activation = 'sigmoid'))
 # discriminator.add(Dense(35, activation = 'sigmoid'))
@@ -190,6 +215,7 @@ def plotLoss(epoch):
     plt.ylabel('Loss')
     plt.legend()
     plt.savefig(output_dir + '/gan_loss_epoch_%d.png' % epoch)
+    plt.close()
     print ("Saving loss graph as "+ output_dir + "/gan_loss_epoch_%d.png" % epoch)
 
 
@@ -206,10 +232,12 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
         for b in range(len(train_data)//batch_size):
             chosen_data_indexes = np.random.randint(1,train_data.shape[0],size = batch_size)
             data_x = np.array([train_data[i] for i in chosen_data_indexes]) #get next batch of the right size form training data and converts it to np.array
+            #data_x.reshape((imageDim, imageDim, 3))
 
             #train discriminator
             generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
             # gan.compile(loss = 'binary_crossentropy', optimizer = 'adam')
+            #generated_x.reshape((imageDim, imageDim, 3))
             discriminator_x = np.concatenate((data_x, generated_x))#concatenate takes a tuple as input
             discriminator_y = np.zeros(2*batch_size)
             discriminator_y[:batch_size] = 0.9
@@ -235,8 +263,10 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
         gLosses.append(gloss)
         print("Discriminator loss: ", dloss)
         print("Generator loss: ", gloss)
-            # if e == 1 or e % 5 == 0:
-        #      plotGeneratedImages(e)
+        if e % 10 == 9:
+             #plotGeneratedImages(e)
+             if e % 100 == 99:
+                 plotLoss(e)
         #      saveModels(e)
 
     plotLoss(e)
@@ -248,7 +278,6 @@ magnification = 10
 
 #seed= np.random.rand(noise_vect_size)
 seed = np.random.normal(0, 1, size=[1, noise_vect_size])
-print ("seed: ", seed.shape)
 
 # Create a wall of generated MNIST images
 def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
@@ -256,13 +285,14 @@ def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
         generatedImages = generator.predict(noise)
         generatedImages = generatedImages.reshape(examples, imageDim, imageDim, 3)
 
-        plt.figure(figsize=figsize)
+        plt.figure(figsize=figsize) #figsize is number of images
         for i in range(generatedImages.shape[0]):
                 plt.subplot(dim[0], dim[1], i+1)
                 plt.imshow(generatedImages[i], interpolation='nearest', cmap='gray_r')
                 plt.axis('off')
         plt.tight_layout()
         plt.savefig(output_dir + '/gan_generated_image_epoch_%d.png' % epoch)
+        plt.close()
 
 #grabbing all training inputs and begin training
 if __name__ == '__main__':
