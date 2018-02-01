@@ -224,7 +224,7 @@ print ("seed: ", seed.shape)
 
 
 def generateImage(arr):
-  # img = np.reshape(arr, (imageDim, imageDim, 1))
+  arr = np.reshape(arr, (imageDim, imageDim, 1))
   res = cv2.resize(arr, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
   return res
 
