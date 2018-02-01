@@ -2,7 +2,7 @@ from keras.layers import Input
 from keras.models import Model, Sequential
 from keras.layers.core import Reshape, Dense, Dropout, Flatten
 from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import Convolution2D, UpSampling2D, Conv2D
+from keras.layers.convolutional import Convolution2D, UpSampling2D, Conv2D, MaxPooling2D
 from keras.layers.normalization import BatchNormalization
 from keras.datasets import mnist
 from keras.optimizers import Adam
@@ -87,13 +87,17 @@ adam = Adam(lr=0.00004, beta_1=0.5)
 generator = Sequential()
 
 #stacking layers on model
-generator.add(Dense(32, activation = 'sigmoid', input_dim=imageDim**2, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+generator.add(Conv2D(64, kernel_size=(3, 3), padding='same', activation = 'sigmoid', input_shape=(28,28,1), kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 # generator.add(Dense(35, activation = 'sigmoid'))
-generator.add(Reshape((32,1,1)))
-generator.add(UpSampling2D(size=(2, 2)))
-generator.add(Conv2D(32, kernel_size=(3, 3), padding='same'))
-generator.add(Flatten())
-generator.add(Dense(imageDim**2, activation = 'sigmoid'))
+# generator.add(Reshape((32,1,1)))
+# generator.add(UpSampling2D(size=(2, 2)))
+generator.add(Conv2D(128, kernel_size=(3, 3), padding='same',  activation = 'sigmoid'))
+# generator.add(MaxPooling2D(pool_size=(2,2)))
+# generator.add(Flatten())
+# generator.add(Dense(imageDim**2, activation = 'sigmoid'))
+generator.add(Conv2D(1, kernel_size=(3, 3), padding='same',  activation = 'sigmoid'))
+
+
 
 #compiling loss function and optimizer
 generator.compile(loss = 'mse', optimizer = adam)
@@ -101,12 +105,14 @@ generator.compile(loss = 'mse', optimizer = adam)
 #create discriminator
 discriminator = Sequential()
 
-discriminator.add(Dense(35, activation = 'sigmoid', input_dim=imageDim**2, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
-discriminator.add(Dense(32, activation = 'sigmoid'))
-generator.add(Reshape((32,1,1)))
-generator.add(UpSampling2D(size=(2, 2)))
-discriminator.add(Conv2D(32, kernel_size=(3, 3), padding='same'))
-generator.add(Flatten())
+discriminator.add(Conv2D(32, kernel_size=(3, 3), padding='same', activation = 'sigmoid', input_shape=(28,28,1), kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+# discriminator.add(Dense(32, activation = 'sigmoid'))
+# discriminator.add(Reshape((32,1,1)))
+# discriminator.add(UpSampling2D(size=(2, 2)))
+# discriminator.add(Conv2D(32, kernel_size=(3, 3), padding='same'))
+discriminator.add(MaxPooling2D(pool_size=(2,2)))
+discriminator.add(Flatten())
+discriminator.add(Dense(50, activation = 'sigmoid'))
 discriminator.add(Dense(1, activation = 'sigmoid'))
 
 #compiling loss function and optimizer
@@ -114,7 +120,7 @@ discriminator.compile(loss = 'mse', optimizer = adam)
 
 #creating the combined model
 discriminator.trainable = False
-gan_input = Input(shape=(noise_vect_size,))
+gan_input = Input(shape=(imageDim,imageDim,1))
 discrimInput = generator(gan_input)
 gan_output = discriminator(discrimInput)
 gan = Model(inputs = gan_input, outputs = gan_output)
@@ -137,7 +143,10 @@ def plotLoss(epoch):
 
 #method for creating batches of trainable data and training
 def trainGAN(train_data, epochs=20, batch_size=10000):
-
+  print("GENERATOR")
+  print(generator.summary())
+  print("Discriminator")
+  print(discriminator.summary())
   batchCount = len(train_data) / batch_size
   #loop for number of epochs
   new_learning_rate = 0.00004
@@ -150,9 +159,11 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
     for b in range(len(train_data)//batch_size):
       chosen_data_indexes = np.random.randint(1,train_data.shape[0],size = batch_size)
       data_x = np.array([train_data[i] for i in chosen_data_indexes]) #get next batch of the right size form training data and converts it to np.array
+      data_x = np.reshape(data_x, (batch_size, imageDim, imageDim, 1))
+      print(data_x.shape)
 
       #train discriminator
-      generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
+      generated_x = generator.predict(np.random.random((batch_size, imageDim, imageDim, 1)))#could use np.random.normal if training fails
       # gan.compile(loss = 'binary_crossentropy', optimizer = 'adam')
       discriminator_x = np.concatenate((data_x, generated_x))#concatenate takes a tuple as input
       discriminator_y = np.zeros(2*batch_size)
@@ -163,7 +174,7 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
       #train generator
       discriminator.trainable=False
       # gan.compile(loss = 'binary_crossentropy', optimizer = 'adam')
-      gan_x = np.random.random((batch_size,noise_vect_size))
+      gan_x = np.random.random((batch_size,imageDim, imageDim, 1))
       gan_y = np.ones(batch_size) #creates an array of ones (expected output)
       gloss = gan.train_on_batch(gan_x, gan_y)
       visualizeOne()
@@ -203,7 +214,7 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 magnification = 10
 
 #seed= np.random.rand(noise_vect_size)
-seed = np.random.normal(0, 1, size=[1, noise_vect_size])
+seed = np.random.normal(0, 1, size=[1, imageDim, imageDim, 1])
 print ("seed: ", seed.shape)
 
 # arr = generator.predict(seed)
@@ -213,8 +224,8 @@ print ("seed: ", seed.shape)
 
 
 def generateImage(arr):
-  img = np.reshape(arr, (imageDim, imageDim))
-  res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+  # img = np.reshape(arr, (imageDim, imageDim, 1))
+  res = cv2.resize(arr, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
   return res
 
 def visualizeOne():
