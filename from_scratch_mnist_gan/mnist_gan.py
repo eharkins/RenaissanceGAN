@@ -21,10 +21,11 @@ import cv2
 import os
 os.environ["KERAS_BACKEND"] = "tensorflow"
 
+from scipy.misc import imsave
+
 
 #side of each image
 imageDim = 28
-# imageDim = 19
 
 #change this directory to where hdf5 file is stored
 DATASETS_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -80,7 +81,7 @@ noise_vect_size = 784
 np.random.seed(1000)
 
 # Optimizer
-adam = Adam(lr=0.0002, beta_1=0.5)
+adam = Adam(lr=0.00004, beta_1=0.5)
 
 #testing sequential model
 generator = Sequential()
@@ -128,10 +129,12 @@ def plotLoss(epoch):
 
 #method for creating batches of trainable data and training
 def trainGAN(train_data, epochs=20, batch_size=10000):
+
 	batchCount = len(train_data) / batch_size
 	#loop for number of epochs
-	# new_learning_rate = 0.0002
-
+	new_learning_rate = 0.00004
+	oldGloss = 100
+	increasing_epoch_counter = 0
 	for e in range(epochs):
 		#loop for total number of batches
 		print ('Epoch:', e)
@@ -157,12 +160,24 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 			gloss = gan.train_on_batch(gan_x, gan_y)
 			visualizeOne()
 
-		# if e % 20 == 0 and e != 0:
-		# 	new_learning_rate -= 0.00001
-		# 	print("NEW LEARNING RATE IS: ", new_learning_rate)
-		# 	adam = Adam(lr=new_learning_rate, beta_1=0.5)
-		# 	gan.compile(loss = 'binary_crossentropy', optimizer = 'adam')
+		if gloss < dloss:
+			arr = generator.predict(seed)
+			img = np.reshape(arr, (imageDim, imageDim))
+			img = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+			img = img*255
+			img = img.astype(np.uint8)
+			imsave('images/low_loss_generations/generated_image_epoch_%d.png' % e, img)
 
+		if gloss > oldGloss:
+			increasing_epoch_counter += 1
+			if increasing_epoch_counter == 3:
+				new_learning_rate = new_learning_rate/2
+				print("NEW LEARNING RATE IS: ", new_learning_rate)
+				adam = Adam(lr=new_learning_rate, beta_1=0.5)
+				gan.compile(loss = 'mse', optimizer = 'adam')
+				increasing_epoch_counter = 0
+
+		oldGloss = gloss		
 
 		dLosses.append(dloss)
 		gLosses.append(gloss)
@@ -183,6 +198,12 @@ magnification = 10
 seed = np.random.normal(0, 1, size=[1, noise_vect_size])
 print ("seed: ", seed.shape)
 
+# arr = generator.predict(seed)
+# # print ("shape of arr: ",arr.shape)
+# res = generateImage(arr)
+# cv2.imwrite("images/low_loss_generations/generated_image_epoch_%d.png" % e, res)
+
+
 def generateImage(arr):
 	img = np.reshape(arr, (imageDim, imageDim))
 	res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
@@ -192,7 +213,7 @@ def visualizeOne():
 	arr = generator.predict(seed)
 	# print ("shape of arr: ",arr.shape)
 	res = generateImage(arr)
-	cv2.imshow('Generated Image', res) # on windows, i had to install xming
+	cv2.imshow('Generated Image', res)
 	# print ("showing image")
 	if cv2.waitKey(1) & 0xFF == ord('q'):
 		sys.exit(0)
@@ -219,6 +240,6 @@ def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
 if __name__ == '__main__':
 	epochs = int(sys.argv[1])
 	batch_size = int(sys.argv[2])
-	#X_train = loadMNIST("train")
-	x_train = loadFaces()
+	x_train = loadMNIST("train")
+	# x_train = loadFaces()
 	trainGAN(x_train, epochs = epochs, batch_size=batch_size)
