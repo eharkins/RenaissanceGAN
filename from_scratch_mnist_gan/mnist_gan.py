@@ -71,6 +71,7 @@ def plotMNISTInput(arr, dim=(10, 10), figsize=(10, 10), numberOfFpngs=100):
 			plt.axis('off')
 		plt.tight_layout()
 		plt.savefig('images/from_MNIST_dataset%d.png' %j)
+    plt.close()
 
 
 #defining noise vector size
@@ -121,6 +122,7 @@ def plotLoss(epoch):
 	plt.ylabel('Loss')
 	plt.legend()
 	plt.savefig('images/gan_loss_epoch_%d.png' % epoch)
+    plt.close()
 	print ("Saving loss graph as images/gan_loss_epoch_%d.png" % epoch)
 
 
@@ -211,6 +213,7 @@ def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
 				plt.axis('off')
 		plt.tight_layout()
 		plt.savefig('images/gan_generated_image_epoch_%d.png' % epoch)
+        plt.close()
 
 #grabbing all training inputs and begin training
 if __name__ == '__main__':
