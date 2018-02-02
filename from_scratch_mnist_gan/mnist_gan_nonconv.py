@@ -81,7 +81,7 @@ noise_vect_size = 784
 np.random.seed(1000)
 
 # Optimizer
-adam = Adam(lr=0.00004, beta_1=0.5)
+adam = Adam(lr=0.0002, beta_1=0.5)
 
 #testing sequential model
 generator = Sequential()
@@ -147,7 +147,7 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 			#train discriminator
 			generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
 			discriminator.trainable = True
-			discriminator.compile(loss = 'mse', optimizer = adamD)
+			# discriminator.compile(loss = 'mse', optimizer = adamD)
 			discriminator_x = np.concatenate((data_x, generated_x))#concatenate takes a tuple as input
 			discriminator_y = np.zeros(2*batch_size)
 			discriminator_y[:batch_size] = 0.9
@@ -155,11 +155,11 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 
 			#train generator
 			discriminator.trainable=False
-			discriminator.compile(loss = 'mse', optimizer = adamD)
+			# discriminator.compile(loss = 'mse', optimizer = adamD)
 			gan_x = np.random.random((batch_size,noise_vect_size))
 			gan_y = np.ones(batch_size) #creates an array of ones (expected output)
 			gloss = gan.train_on_batch(gan_x, gan_y)
-			# visualizeOne()
+			visualizeOne()
 
 		if gloss < dloss:
 			saveGeneratedImage(e, True)
