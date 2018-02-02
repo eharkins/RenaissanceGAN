@@ -131,9 +131,9 @@ def plotLoss(epoch):
 def trainGAN(train_data, epochs=20, batch_size=10000):
 	batchCount = len(train_data) / batch_size
 	#loop for number of epochs
-	adamG = Adam(lr=0.00004, beta_1=0.5)
-	adamD = Adam(lr=0.00004, beta_1=0.5)
-	new_learning_rate = 0.00004
+	adamG = Adam(lr=0.0002, beta_1=0.5)
+	adamD = Adam(lr=0.0002, beta_1=0.5)
+	new_learning_rate = 0.0002
 	oldGloss = 100
 	increasing_epoch_counter = 0
 	for e in range(epochs):
