@@ -41,7 +41,7 @@ def loadFaces():
 
 def loadMNIST(dataType):
 	#parameter determines whether data is training or testing
-	size = 10000
+	size = 1000
 	f = h5py.File(DATASETS_DIR + "/data/mnist.hdf5", 'r')
 	X = f['x_'+dataType][:size]
 	maxes = X.max(axis=0)
@@ -162,12 +162,9 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 			# visualizeOne()
 
 		if gloss < dloss:
-			arr = generator.predict(seed)
-			img = np.reshape(arr, (imageDim, imageDim))
-			img = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
-			img = img*255
-			img = img.astype(np.uint8)
-			imsave('images/low_loss_generations/generated_image_epoch_%d.png' % e, img)
+      saveGeneratedImage(e, True)
+    if e % 10 == 0:
+      saveGeneratedImage(e)
 
 		if gloss > oldGloss:
 			increasing_epoch_counter += 1
@@ -209,6 +206,16 @@ print ("seed: ", seed.shape)
 # res = generateImage(arr)
 # cv2.imwrite("images/low_loss_generations/generated_image_epoch_%d.png" % e, res)
 
+def saveGeneratedImage(e, low_loss=False):
+  arr = generator.predict(seed)
+  img = np.reshape(arr, (imageDim, imageDim, 1))
+  img = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+  img = img*255
+  img = img.astype(np.uint8)
+  if low_loss:
+    imsave('images/low_loss_generations/low_loss_generated_image_epoch_%d.png' % e, img)
+  else:
+    imsave('images/low_loss_generations/generated_image_epoch_%d.png' % e, img)
 
 def generateImage(arr):
 	img = np.reshape(arr, (imageDim, imageDim))
