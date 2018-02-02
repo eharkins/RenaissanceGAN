@@ -41,8 +41,8 @@ def loadFaces():
 
 def loadMNIST(dataType):
   #parameter determines whether data is training or testing
-  size = 10000
-  f = h5py.File(DATASETS_DIR + "data/mnist.hdf5", 'r')
+  size = 10
+  f = h5py.File(DATASETS_DIR + "/data/mnist.hdf5", 'r')
   X = f['x_'+dataType][:size]
   maxes = X.max(axis=0)
   for i in range(len(maxes)):
@@ -151,6 +151,9 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
   batchCount = len(train_data) / batch_size
   #loop for number of epochs
   new_learning_rate = 0.00004
+  # updateLearningRate(new_learning_rate)
+  # print("LEARNING RATE DISCRIMINATOR: ", K.get_value(discriminator.optimizer.lr))
+  # print("LEARNING RATE GENERATOR: ", K.get_value(generator.optimizer.lr))
   oldGloss = 100
   increasing_epoch_counter = 0
   for e in range(epochs):
@@ -163,7 +166,7 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
       data_x = np.reshape(data_x, (batch_size, imageDim, imageDim, 1))
 
       #train discriminator
-      generated_x = generator.predict(np.random.normal((batch_size, imageDim, imageDim, 1)))#could use np.random.normal if training fails
+      generated_x = generator.predict(np.random.random((batch_size, imageDim, imageDim, 1)))#could use np.random.normal if training fails
       discriminator_x = np.concatenate((data_x, generated_x))#concatenate takes a tuple as input
       discriminator_y = np.zeros(2*batch_size)
       discriminator_y[:batch_size] = 0.9
@@ -180,9 +183,9 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 
     # save generated images every 10 epochs and when we have generator loss below discriminator
     if gloss < dloss:
-      saveGeneratedImage(True)
+      saveGeneratedImage(e, True)
     if e % 10 == 0:
-      saveGeneratedImage()
+      saveGeneratedImage(e)
 
     # cut lr in half if gloss increases three epochs in a row
     if gloss > oldGloss:
@@ -216,10 +219,13 @@ def updateLearningRate(learning_rate):
   new_learning_rate = learning_rate/2
   print("NEW LEARNING RATE IS: ", new_learning_rate)
   adam = Adam(lr=new_learning_rate, beta_1=0.5)
-  gan.compile(loss = 'mse', optimizer = 'adam')
+  generator.compile(loss = 'mse', optimizer = adam)
+  # discriminator.compile(loss = 'mse', optimizer = adam)
+  gan.compile(loss = 'mse', optimizer = adam)
+
   return new_learning_rate
 
-def saveGeneratedImage(low_loss=False):
+def saveGeneratedImage(e, low_loss=False):
   arr = generator.predict(seed)
   img = np.reshape(arr, (imageDim, imageDim, 1))
   img = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
