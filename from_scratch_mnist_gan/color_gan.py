@@ -8,6 +8,7 @@ from keras.datasets import mnist
 from keras.optimizers import Adam
 from keras import backend as K
 from keras import initializers
+import argparse
 import keras.utils
 import numpy as np
 import h5py
@@ -22,17 +23,18 @@ import os
 os.environ["KERAS_BACKEND"] = "tensorflow"
 
 
+
 # input_dir = "fungi_sprites"
 # output_dir = "fungi_generated"
 
 # input_dir = "color/flower_sprites"
-# output_dir = "color/flower_decon_generated"
+# output_dir = "color/flower_generated"
 
 # input_dir = "color/sprites"
 # output_dir = "color/sprites_generated"
 
-input_dir = "color/monsters"
-output_dir = "color/monsters_generated"
+# input_dir = "color/monsters"
+# output_dir = "color/monsters_generated"
 
 # input_dir = "color/mask_sprites"
 # output_dir = "color/masks_generated"
@@ -43,6 +45,25 @@ output_dir = "color/monsters_generated"
 
 #change this directory to where hdf5 file is stored
 DATASETS_DIR = os.path.dirname(os.path.realpath(__file__))
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--epochs', type=int, default=12000,
+                        help='the number of training steps to take')
+    parser.add_argument('--batch', type=int, default=20,
+                        help='the batch size')
+    parser.add_argument('--display', type=int, default=0,
+                        help='display live with opencv')
+    parser.add_argument('--input', type=str, default='flower_sprites',
+                        help='directory of examples (within colors)')
+    parser.add_argument('--output', type=str, default='flower_generated',
+                        help='directory of output (within colors)')
+    return parser.parse_args()
+
+args = parse_args()
+
+input_dir = "color/" + args.input
+output_dir = "color/" + args.output
 
 
 def loadFaces():
@@ -134,7 +155,8 @@ def loadPixels():
 
         images[i] = pic
         visualizeTest(pic)
-    return np.reshape(images ,(count, imageDim**2 * 3))/255
+    #return np.reshape(images ,(count, imageDim**2 * 3))/255
+    return images
 
 
 if not os.path.exists(output_dir):
@@ -156,8 +178,19 @@ adam = Adam(lr=0.0001, beta_1=0.5)
 #testing sequential model
 generator = Sequential()
 
+#noise_shape = (imageDim, imageDim, 1)
+noise_shape = (10,)
+image_shape = (imageDim, imageDim, 3)
+flat_size = imageDim**2*3
 #stacking layers on model
-#generator.add(Conv2D(filters, kernel_size, strides=1,
+
+#this one doesn't work great
+# generator.add(Dense(imageDim**2*3,  activation = 'sigmoid', input_shape=noise_shape))
+# generator.add(Reshape((image_shape), input_shape=(imageDim**2*3,)))
+# generator.add(Conv2D(32, (3, 3), padding='same'))
+# generator.add(Conv2D(3, (3, 3), padding='same'))
+
+#the original one
 generator.add(Dense(35, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 generator.add(Dropout(.1))
 #generator.add(Dense(35, activation = 'sigmoid'))
@@ -167,30 +200,32 @@ generator.add(Dropout(.1))
 # generator.add(Dense(35, activation = 'sigmoid'))
 generator.add(Dense(imageDim**2*3, activation = 'sigmoid'))
 generator.add(Dropout(.1))
-generator.add(Reshape((imageDim, imageDim, 3), input_shape=(imageDim**2*3,)))
+generator.add(Reshape((image_shape), input_shape=(imageDim**2*3,)))
 generator.add(Conv2D(35, (3, 3), padding='same'))
 generator.add(Conv2D(3, (3, 3), padding='same'))
-generator.add(Flatten())
+
 
 #compiling loss function and optimizer
 generator.compile(loss = 'mse', optimizer = adam)
 
+
 #create discriminator
 discriminator = Sequential()
-discriminator.add(Reshape((imageDim, imageDim, 3), input_shape=(imageDim**2*3,)))
-discriminator.add(Conv2D(35, (3, 3), padding='same', input_shape=(imageDim, imageDim, 3)))
+
+#new one not working great
+# discriminator.add(Conv2D(64, (3, 3), padding='same', input_shape=image_shape))
+# discriminator.add(MaxPooling2D(pool_size=(2, 2)))
+# discriminator.add(Flatten())
+# discriminator.add(Dense(32, activation = 'sigmoid'))
+# discriminator.add(Dense(32, activation = 'sigmoid'))
+
+
+discriminator.add(Conv2D(35, (3, 3), padding='same', input_shape=image_shape))
 discriminator.add(MaxPooling2D(pool_size=(2, 2)))
 discriminator.add(Conv2D(35, (3, 3), padding='same'))
 discriminator.add(MaxPooling2D(pool_size=(2, 2)))
+#iscriminator.add(Dense(32, activation = 'sigmoid'))
 discriminator.add(Flatten())
-
-discriminator.add(Dense(35, activation = 'sigmoid', input_dim=imageDim**2*3, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
-# generator.add(Dropout(.5))
-# discriminator.add(Dense(35, activation = 'sigmoid'))
-# discriminator.add(Dense(35, activation = 'sigmoid'))
-# generator.add(Dropout(.5))
-# discriminator.add(Dense(35, activation = 'sigmoid'))
-# discriminator.add(Dense(35, activation = 'sigmoid'))
 discriminator.add(Dense(1, activation = 'sigmoid'))
 
 #compiling loss function and optimizer
@@ -198,14 +233,16 @@ discriminator.compile(loss = 'mse', optimizer = adam)
 
 #creating the combined model
 discriminator.trainable = False
-gan_input = Input(shape=(noise_vect_size,))
+gan_input = Input(shape=noise_shape)
 discrimInput = generator(gan_input)
 gan_output = discriminator(discrimInput)
 gan = Model(inputs = gan_input, outputs = gan_output)
 gan.compile(loss = 'mse', optimizer = adam)
+print("gan learning rate:", K.get_value(gan.optimizer.lr))
 
 dLosses = []
 gLosses = []
+
 
 def plotLoss(epoch):
     plt.figure(figsize=(10, 8))
@@ -224,7 +261,9 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
     batchCount = len(train_data) / batch_size
     #loop for number of epochs
     # new_learning_rate = 0.0002
-
+    oldGloss = 1000
+    increasing_epoch_counter = 0
+    new_learning_rate = 0.00004
     for e in range(epochs):
         #loop for total number of batches
         print ('Epoch:', e)
@@ -235,7 +274,7 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
             #data_x.reshape((imageDim, imageDim, 3))
 
             #train discriminator
-            generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
+            generated_x = generator.predict(np.random.random((batch_size,)+noise_shape))
             # gan.compile(loss = 'binary_crossentropy', optimizer = 'adam')
             #generated_x.reshape((imageDim, imageDim, 3))
             discriminator_x = np.concatenate((data_x, generated_x))#concatenate takes a tuple as input
@@ -247,11 +286,38 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
             #train generator
             discriminator.trainable=False
             # gan.compile(loss = 'binary_crossentropy', optimizer = 'adam')
-            gan_x = np.random.random((batch_size,noise_vect_size))
+            gan_x = np.random.random((batch_size,)+noise_shape)
             gan_y = np.ones(batch_size) #creates an array of ones (expected output)
             gloss = gan.train_on_batch(gan_x, gan_y)
-            visualizeOne()
+            if args.display:
+                visualizeOne()
 
+
+            # save image whenever generator loss dips below discriminator loss
+            # if gloss < dloss:
+            #   arr = generator.predict(seed)
+            #   img = np.reshape(arr, (imageDim, imageDim, 3))
+            #   img = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+            #   img = img*255
+            #   img = img.astype(np.uint8)
+            #   imsave(output_dir +'/generated_image_epoch_%d.png' % e, img)
+
+            # decrease learning rate whenever d loss starts climbing
+            if gloss > oldGloss:
+                increasing_epoch_counter += 1
+                if increasing_epoch_counter == 6:
+                    new_learning_rate = new_learning_rate/2
+                    #new_learning_rate = new_learning_rate*0
+                    print("NEW LEARNING RATE IS: ", new_learning_rate)
+                    adam = Adam(lr=new_learning_rate, beta_1=0.5)
+                    # generator.compile(loss = 'mse', optimizer = 'adam')
+                    # discriminator.compile(loss = 'mse', optimizer = 'adam')
+                    gan.compile(loss = 'mse', optimizer = 'adam')
+                    print("gan learning rate:", K.get_value(gan.optimizer.lr))
+                    print("generator learning rate:", K.get_value(generator.optimizer.lr))
+                    print("discriminator learning rate:", K.get_value(discriminator.optimizer.lr))
+                    increasing_epoch_counter = 0
+            oldGloss = gloss
         # if e % 20 == 0 and e != 0:
         #     new_learning_rate -= 0.00001
         #     print("NEW LEARNING RATE IS: ", new_learning_rate)
@@ -265,7 +331,7 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
         print("Generator loss: ", gloss)
         if e % 10 == 9:
              #plotGeneratedImages(e)
-             if e % 100 == 99:
+             if e % 50 == 49:
                  plotLoss(e)
         #      saveModels(e)
 
@@ -277,7 +343,11 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 magnification = 10
 
 #seed= np.random.rand(noise_vect_size)
-seed = np.random.normal(0, 1, size=[1, noise_vect_size])
+#seed = np.random.normal(0, 1, size=[1, noise_vect_size])
+
+#seed = np.random.normal(0, 1, size=[1, imageDim, imageDim, 1])
+#seed = np.random.normal(0, 1, size=[1, imageDim, imageDim, 1])
+seed = np.random.random((1,)+noise_shape)
 
 # Create a wall of generated MNIST images
 def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
@@ -296,8 +366,10 @@ def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
 
 #grabbing all training inputs and begin training
 if __name__ == '__main__':
-    epochs = int(sys.argv[1])
-    batch_size = int(sys.argv[2])
+    epochs = args.epochs
+    batch_size = args.batch
+    print ("batch size: ", batch_size, " epochs: ", epochs)
     #X_train = loadMNIST("train")
     x_train = loadPixels()
+    print("x train shape is: ", x_train.shape)
     trainGAN(x_train, epochs = epochs, batch_size=batch_size)
