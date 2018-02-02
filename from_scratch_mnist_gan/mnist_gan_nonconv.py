@@ -159,7 +159,7 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 			gan_x = np.random.random((batch_size,noise_vect_size))
 			gan_y = np.ones(batch_size) #creates an array of ones (expected output)
 			gloss = gan.train_on_batch(gan_x, gan_y)
-			visualizeOne()
+			# visualizeOne()
 
 		if gloss < dloss:
 			saveGeneratedImage(e, True)
