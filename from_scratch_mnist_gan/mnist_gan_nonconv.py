@@ -41,7 +41,7 @@ def loadFaces():
 
 def loadMNIST(dataType):
 	#parameter determines whether data is training or testing
-	size = 1000
+	size = 10000
 	f = h5py.File(DATASETS_DIR + "/data/mnist.hdf5", 'r')
 	X = f['x_'+dataType][:size]
 	maxes = X.max(axis=0)
