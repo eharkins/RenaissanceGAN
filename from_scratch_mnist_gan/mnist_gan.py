@@ -42,7 +42,7 @@ def loadFaces():
 def loadMNIST(dataType):
   #parameter determines whether data is training or testing
   size = 10000
-  f = h5py.File(DATASETS_DIR + "/mnist.hdf5", 'r')
+  f = h5py.File(DATASETS_DIR + "data/mnist.hdf5", 'r')
   X = f['x_'+dataType][:size]
   maxes = X.max(axis=0)
   for i in range(len(maxes)):
@@ -92,6 +92,7 @@ generator.add(Conv2D(64, kernel_size=(3, 3), padding='same', activation = 'sigmo
 # generator.add(Reshape((32,1,1)))
 # generator.add(UpSampling2D(size=(2, 2)))
 generator.add(Conv2D(128, kernel_size=(3, 3), padding='same',  activation = 'sigmoid'))
+generator.add(Conv2D(256, kernel_size=(3, 3), padding='same',  activation = 'sigmoid'))
 # generator.add(MaxPooling2D(pool_size=(2,2)))
 # generator.add(Flatten())
 # generator.add(Dense(imageDim**2, activation = 'sigmoid'))
@@ -145,7 +146,7 @@ def plotLoss(epoch):
 def trainGAN(train_data, epochs=20, batch_size=10000):
   print("GENERATOR")
   print(generator.summary())
-  print("Discriminator")
+  print("DISCRIMINATOR")
   print(discriminator.summary())
   batchCount = len(train_data) / batch_size
   #loop for number of epochs
@@ -160,11 +161,9 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
       chosen_data_indexes = np.random.randint(1,train_data.shape[0],size = batch_size)
       data_x = np.array([train_data[i] for i in chosen_data_indexes]) #get next batch of the right size form training data and converts it to np.array
       data_x = np.reshape(data_x, (batch_size, imageDim, imageDim, 1))
-      print(data_x.shape)
 
       #train discriminator
-      generated_x = generator.predict(np.random.random((batch_size, imageDim, imageDim, 1)))#could use np.random.normal if training fails
-      # gan.compile(loss = 'binary_crossentropy', optimizer = 'adam')
+      generated_x = generator.predict(np.random.normal((batch_size, imageDim, imageDim, 1)))#could use np.random.normal if training fails
       discriminator_x = np.concatenate((data_x, generated_x))#concatenate takes a tuple as input
       discriminator_y = np.zeros(2*batch_size)
       discriminator_y[:batch_size] = 0.9
@@ -173,27 +172,23 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 
       #train generator
       discriminator.trainable=False
-      # gan.compile(loss = 'binary_crossentropy', optimizer = 'adam')
       gan_x = np.random.random((batch_size,imageDim, imageDim, 1))
       gan_y = np.ones(batch_size) #creates an array of ones (expected output)
       gloss = gan.train_on_batch(gan_x, gan_y)
-      visualizeOne()
+      
+      # visualizeOne()
 
-    if gloss < dloss:
-      arr = generator.predict(seed)
-      img = np.reshape(arr, (imageDim, imageDim))
-      img = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
-      img = img*255
-      img = img.astype(np.uint8)
-      imsave('images/low_loss_generations/generated_image_epoch_%d.png' % e, img)
+    # save generated images every 10 epochs and when we have generator loss below discriminator
+    if gloss < dloss: 
+      saveGeneratedImage(True)
+    if e % 10 == 0:
+      saveGeneratedImage()
 
+    # cut lr in half if gloss increases three epochs in a row
     if gloss > oldGloss:
       increasing_epoch_counter += 1
       if increasing_epoch_counter == 3:
-        new_learning_rate = new_learning_rate/2
-        print("NEW LEARNING RATE IS: ", new_learning_rate)
-        adam = Adam(lr=new_learning_rate, beta_1=0.5)
-        gan.compile(loss = 'mse', optimizer = 'adam')
+        new_learning_rate = updateLearningRate(new_learning_rate)
         increasing_epoch_counter = 0
 
     oldGloss = gloss    
@@ -217,10 +212,23 @@ magnification = 10
 seed = np.random.normal(0, 1, size=[1, imageDim, imageDim, 1])
 print ("seed: ", seed.shape)
 
-# arr = generator.predict(seed)
-# # print ("shape of arr: ",arr.shape)
-# res = generateImage(arr)
-# cv2.imwrite("images/low_loss_generations/generated_image_epoch_%d.png" % e, res)
+def updateLearningRate(learning_rate):
+  new_learning_rate = learning_rate/2
+  print("NEW LEARNING RATE IS: ", new_learning_rate)
+  adam = Adam(lr=new_learning_rate, beta_1=0.5)
+  gan.compile(loss = 'mse', optimizer = 'adam')
+  return new_learning_rate
+
+def saveGeneratedImage(low_loss=False):
+  arr = generator.predict(seed)
+  img = np.reshape(arr, (imageDim, imageDim, 1))
+  img = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+  img = img*255
+  img = img.astype(np.uint8)
+  if low_loss:
+    imsave('images/low_loss_generations/low_loss_generated_image_epoch_%d.png' % e, img)
+  else:
+    imsave('images/low_loss_generations/generated_image_epoch_%d.png' % e, img)
 
 
 def generateImage(arr):
@@ -257,6 +265,7 @@ def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
 
 #grabbing all training inputs and begin training
 if __name__ == '__main__':
+  sys.stdout=open('logs/result.txt','w')
   epochs = int(sys.argv[1])
   batch_size = int(sys.argv[2])
   x_train = loadMNIST("train")
