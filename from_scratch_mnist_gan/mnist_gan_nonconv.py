@@ -166,19 +166,19 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 		if e % 10 == 0:
 			saveGeneratedImage(e)
 
-		if gloss > oldGloss:
-			increasing_epoch_counter += 1
-			if increasing_epoch_counter == 3:
-				new_learning_rate = new_learning_rate*0.9
-				adamG = Adam(lr=new_learning_rate, beta_1=0.5)
-				adamD = Adam(lr=new_learning_rate, beta_1=0.5)
-				generator.compile(loss = 'mse', optimizer = adamG)
-				discriminator.compile(loss = 'mse', optimizer = adamD)
-				# discriminator.compile(loss = 'mse', optimizer = adam)
-				gan.compile(loss = 'mse', optimizer = adamG)
-				print("LEARNING RATE DISCRIMINATOR: ", K.get_value(discriminator.optimizer.lr))
-				print("LEARNING RATE GENERATOR: ", K.get_value(generator.optimizer.lr))
-				increasing_epoch_counter = 0
+		# if gloss > oldGloss:
+		# 	increasing_epoch_counter += 1
+		# 	if increasing_epoch_counter == 3:
+		# 		new_learning_rate = new_learning_rate*0.9
+		# 		adamG = Adam(lr=new_learning_rate, beta_1=0.5)
+		# 		adamD = Adam(lr=new_learning_rate, beta_1=0.5)
+		# 		generator.compile(loss = 'mse', optimizer = adamG)
+		# 		discriminator.compile(loss = 'mse', optimizer = adamD)
+		# 		# discriminator.compile(loss = 'mse', optimizer = adam)
+		# 		gan.compile(loss = 'mse', optimizer = adamG)
+		# 		print("LEARNING RATE DISCRIMINATOR: ", K.get_value(discriminator.optimizer.lr))
+		# 		print("LEARNING RATE GENERATOR: ", K.get_value(generator.optimizer.lr))
+		# 		increasing_epoch_counter = 0
 
 		oldGloss = gloss		
 
