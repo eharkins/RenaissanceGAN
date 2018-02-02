@@ -72,7 +72,7 @@ def plotMNISTInput(arr, dim=(10, 10), figsize=(10, 10), numberOfFpngs=100):
       plt.axis('off')
     plt.tight_layout()
     plt.savefig('images/from_MNIST_dataset%d.png' %j)
-    
+
   # plt.close()
 
 #defining noise vector size
@@ -179,6 +179,7 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
       gloss = gan.train_on_batch(gan_x, gan_y)
       visualizeOne()
 
+    # save image whenever generator loss dips below discriminator loss
     if gloss < dloss:
       arr = generator.predict(seed)
       img = np.reshape(arr, (imageDim, imageDim))
@@ -187,6 +188,7 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
       img = img.astype(np.uint8)
       imsave('images/low_loss_generations/generated_image_epoch_%d.png' % e, img)
 
+    # decrease learning rate whenever d loss starts climbing
     if gloss > oldGloss:
       increasing_epoch_counter += 1
       if increasing_epoch_counter == 3:
@@ -196,7 +198,7 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
         gan.compile(loss = 'mse', optimizer = 'adam')
         increasing_epoch_counter = 0
 
-    oldGloss = gloss    
+    oldGloss = gloss
 
     dLosses.append(dloss)
     gLosses.append(gloss)
