@@ -71,7 +71,7 @@ def plotMNISTInput(arr, dim=(10, 10), figsize=(10, 10), numberOfFpngs=100):
 			plt.imshow(generatedImages[i+j*numberOfFpngs], interpolation='nearest', cmap='gray_r')
 			plt.axis('off')
 		plt.tight_layout()
-		plt.savefig('images/from_MNIST_dataset%d.png' %j)
+		plt.savefig('images_const_lr/from_MNIST_dataset%d.png' %j)
 		# plt.close()
 
 
@@ -122,7 +122,7 @@ def plotLoss(epoch):
 	plt.xlabel('Epoch')
 	plt.ylabel('Loss')
 	plt.legend()
-	plt.savefig('images/gan_loss_epoch_%d.png' % epoch)
+	plt.savefig('images_const_lr/gan_loss_epoch_%d.png' % epoch)
 	plt.close()
 	print ("Saving loss graph as images/gan_loss_epoch_%d.png" % epoch)
 
@@ -213,9 +213,9 @@ def saveGeneratedImage(e, low_loss=False):
   img = img*255
   img = img.astype(np.uint8)
   if low_loss:
-    imsave('images/low_loss_generations/low_loss_generated_image_epoch_%d.png' % e, img)
+    imsave('images_const_lr/low_loss_generations/low_loss_generated_image_epoch_%d.png' % e, img)
   else:
-    imsave('images/low_loss_generations/generated_image_epoch_%d.png' % e, img)
+    imsave('images_const_lr/low_loss_generations/generated_image_epoch_%d.png' % e, img)
 
 def generateImage(arr):
 	img = np.reshape(arr, (imageDim, imageDim))
@@ -246,7 +246,7 @@ def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
 				plt.imshow(generatedImages[i], interpolation='nearest', cmap='gray_r')
 				plt.axis('off')
 		plt.tight_layout()
-		plt.savefig('images/gan_generated_image_epoch_%d.png' % epoch)
+		plt.savefig('images_const_lr/gan_generated_image_epoch_%d.png' % epoch)
 		plt.close()
 
 #grabbing all training inputs and begin training
