@@ -162,9 +162,9 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 			# visualizeOne()
 
 		if gloss < dloss:
-      saveGeneratedImage(e, True)
-    if e % 10 == 0:
-      saveGeneratedImage(e)
+			saveGeneratedImage(e, True)
+		if e % 10 == 0:
+			saveGeneratedImage(e)
 
 		if gloss > oldGloss:
 			increasing_epoch_counter += 1
