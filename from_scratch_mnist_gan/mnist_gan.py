@@ -41,7 +41,7 @@ def loadFaces():
 
 def loadMNIST(dataType):
   #parameter determines whether data is training or testing
-  size = 10
+  size = 1000
   f = h5py.File(DATASETS_DIR + "/data/mnist.hdf5", 'r')
   X = f['x_'+dataType][:size]
   maxes = X.max(axis=0)
@@ -154,7 +154,7 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
   # updateLearningRate(new_learning_rate)
   # print("LEARNING RATE DISCRIMINATOR: ", K.get_value(discriminator.optimizer.lr))
   # print("LEARNING RATE GENERATOR: ", K.get_value(generator.optimizer.lr))
-  oldGloss = 100
+  gloss = oldGloss = 100
   increasing_epoch_counter = 0
   for e in range(epochs):
     #loop for total number of batches
@@ -216,12 +216,12 @@ seed = np.random.normal(0, 1, size=[1, imageDim, imageDim, 1])
 print ("seed: ", seed.shape)
 
 def updateLearningRate(learning_rate):
-  new_learning_rate = learning_rate/2
+  new_learning_rate = learning_rate*0.9
   print("NEW LEARNING RATE IS: ", new_learning_rate)
   adam = Adam(lr=new_learning_rate, beta_1=0.5)
-  generator.compile(loss = 'mse', optimizer = adam)
-  # discriminator.compile(loss = 'mse', optimizer = adam)
-  gan.compile(loss = 'mse', optimizer = adam)
+  # generator.compile(loss = 'mse', optimizer = adam)
+  discriminator.compile(loss = 'mse', optimizer = adam)
+  # gan.compile(loss = 'mse', optimizer = adam)
 
   return new_learning_rate
 
