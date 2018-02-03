@@ -8,6 +8,7 @@ from keras.datasets import mnist
 from keras.optimizers import Adam
 from keras import backend as K
 from keras import initializers
+from scipy.misc import imsave
 import argparse
 import keras.utils
 import numpy as np
@@ -52,18 +53,17 @@ def parse_args():
                         help='the number of training steps to take')
     parser.add_argument('--batch', type=int, default=20,
                         help='the batch size')
-    parser.add_argument('--display', type=int, default=0,
-                        help='display live with opencv')
-    parser.add_argument('--input', type=str, default='flower_sprites',
-                        help='directory of examples (within colors)')
-    parser.add_argument('--output', type=str, default='flower_generated',
-                        help='directory of output (within colors)')
+    parser.add_argument ('--data', type=str, default='flower',
+                        help='data to parse, ****_sprites should be input, ***_output should be output)')
+    parser.add_argument('--display', dest='display', action='store_true')
+    parser.add_argument('--no-display', dest='display', action='store_false')
+    parser.set_defaults(display=True)
     return parser.parse_args()
 
 args = parse_args()
 
-input_dir = "color/" + args.input
-output_dir = "color/" + args.output
+input_dir = "color/" + args.data + "_sprites"
+output_dir = "color/" + args.data + "_output"
 
 
 def loadFaces():
@@ -156,7 +156,7 @@ def loadPixels():
         images[i] = pic
         visualizeTest(pic)
     #return np.reshape(images ,(count, imageDim**2 * 3))/255
-    return images
+    return images/255
 
 
 if not os.path.exists(output_dir):
@@ -167,6 +167,7 @@ imageDim = getImageDim()
 
 #defining noise vector size
 noise_vect_size = 10
+#noise_vect_size = imageDim**2*3
 
 np.random.seed(1000)
 
@@ -264,7 +265,7 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
     oldGloss = 1000
     increasing_epoch_counter = 0
     new_learning_rate = 0.00004
-    for e in range(epochs):
+    for e in range(1, epochs+1):
         #loop for total number of batches
         print ('Epoch:', e)
         print ('Batches per epoch:', batchCount)
@@ -293,37 +294,41 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
                 visualizeOne()
 
 
-            # save image whenever generator loss dips below discriminator loss
-            # if gloss < dloss:
-            #   arr = generator.predict(seed)
-            #   img = np.reshape(arr, (imageDim, imageDim, 3))
-            #   img = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
-            #   img = img*255
-            #   img = img.astype(np.uint8)
-            #   imsave(output_dir +'/generated_image_epoch_%d.png' % e, img)
+        # save image whenever generator loss dips below discriminator loss
+        # if gloss < dloss:
+        #   arr = generator.predict(seed)
+        #   img = np.reshape(arr, (imageDim, imageDim, 3))
+        #   img = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+        #   img = img*255
+        #   img = img.astype(np.uint8)
+        #   imsave(output_dir +'/generated_image_epoch_%d.png' % e, img)
 
-            # decrease learning rate whenever d loss starts climbing
-            if gloss > oldGloss:
-                increasing_epoch_counter += 1
-                if increasing_epoch_counter == 6:
-                    new_learning_rate = new_learning_rate/2
-                    #new_learning_rate = new_learning_rate*0
-                    print("NEW LEARNING RATE IS: ", new_learning_rate)
-                    adam = Adam(lr=new_learning_rate, beta_1=0.5)
-                    # generator.compile(loss = 'mse', optimizer = 'adam')
-                    # discriminator.compile(loss = 'mse', optimizer = 'adam')
-                    gan.compile(loss = 'mse', optimizer = 'adam')
-                    print("gan learning rate:", K.get_value(gan.optimizer.lr))
-                    print("generator learning rate:", K.get_value(generator.optimizer.lr))
-                    print("discriminator learning rate:", K.get_value(discriminator.optimizer.lr))
-                    increasing_epoch_counter = 0
-            oldGloss = gloss
+        # decrease learning rate whenever d loss starts climbing
+        if gloss > oldGloss:
+            increasing_epoch_counter += 1
+            if increasing_epoch_counter == 6:
+                new_learning_rate = new_learning_rate/2
+                #new_learning_rate = new_learning_rate*0
+                print("NEW LEARNING RATE IS: ", new_learning_rate)
+                adam = Adam(lr=new_learning_rate, beta_1=0.5)
+                # generator.compile(loss = 'mse', optimizer = 'adam')
+                # discriminator.compile(loss = 'mse', optimizer = 'adam')
+                gan.compile(loss = 'mse', optimizer = 'adam')
+                print("gan learning rate:", K.get_value(gan.optimizer.lr))
+                print("generator learning rate:", K.get_value(generator.optimizer.lr))
+                print("discriminator learning rate:", K.get_value(discriminator.optimizer.lr))
+                increasing_epoch_counter = 0
+        oldGloss = gloss
         # if e % 20 == 0 and e != 0:
         #     new_learning_rate -= 0.00001
         #     print("NEW LEARNING RATE IS: ", new_learning_rate)
         #     adam = Adam(lr=new_learning_rate, beta_1=0.5)
         #     gan.compile(loss = 'binary_crossentropy', optimizer = 'adam')
-
+        if gloss < dloss:
+            saveGeneratedImage(e, True)
+        if e % 10 == 1:
+            saveAlbum(e)
+          #saveGeneratedImage(e)
 
         dLosses.append(dloss)
         gLosses.append(gloss)
@@ -363,6 +368,38 @@ def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
         plt.tight_layout()
         plt.savefig(output_dir + '/gan_generated_image_epoch_%d.png' % epoch)
         plt.close()
+
+def saveGeneratedImage(e, low_loss=False):
+  arr = generator.predict(seed)
+  img = np.reshape(arr, (image_shape))
+  img = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+  img = img*255
+  img = img.astype(np.uint8)
+  if low_loss:
+    imsave(output_dir + '/low_loss_generated_image_epoch_%d.png' % e, img)
+  else:
+    imsave(output_dir + '/generated_image_epoch_%d.png' % e, img)
+
+#save a bunch of random images
+def saveAlbum(e, shape = (10,10)):
+    #noise = np.random.normal(0, 1, size=[shape+noise_shape])
+    collage = np.empty (shape = (shape[0]*image_shape[0],shape[1]*image_shape[1],image_shape[2]))
+    print ("combined image shape is: ", collage.shape)
+    for x in range (shape[0]):
+        for y in range (shape[0]):
+            noise = np.random.random(shape+noise_shape)
+            image = generator.predict(noise[x])
+            #place pixel values of image in the collage
+            collage[x*image_shape[0]:(x+1)*image_shape[0],y*image_shape[1]:(y+1)*image_shape[1]] = (image)
+        # for y in range (shape[1])
+        #     image = generator.predict(noise[x,y])
+        #     img = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+        #     img = img*255
+    collage *= 255
+    cv2.imwrite(output_dir + '/many_%d_epoch_%d.png' % (shape[0]*shape[1], e), collage)
+
+
+
 
 #grabbing all training inputs and begin training
 if __name__ == '__main__':
