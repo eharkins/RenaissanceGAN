@@ -115,7 +115,6 @@ def plotMNISTInput(arr, dim=(10, 10), figsize=(10, 10), numberOfFpngs=100):
 
 def generateImage(arr):
     magnification = 10
-    #img = np.reshape(arr, (imageDim, imageDim, 3))
     img = arr
     res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
     return res
@@ -128,11 +127,7 @@ def visualizeOne():
         sys.exit(0)
 
 def visualizeTest(arr):
-    #print ("arr is: ", arr)
-    #print ("image shape is: ", arr.shape)
     res = generateImage(arr)
-    #print ("new shape is: ", res.shape)
-    #cv2.imshow('Generated Image', res)
     cv2.imshow('Generated Image', res)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         sys.exit(0)
@@ -188,7 +183,7 @@ seed = np.random.normal(0, 1, size=[1, noise_vect_size])
 #testing sequential model
 generator = Sequential()
 
-image_shape = (imageDim, imageDim, 3);
+image_shape = (imageDim, imageDim, 3)
 
 #stacking layers on model
 #generator.add(Conv2D(filters, kernel_size, strides=1,
@@ -266,13 +261,8 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
         for b in range(len(train_data)//batch_size):
             chosen_data_indexes = np.random.randint(1,train_data.shape[0],size = batch_size)
             data_x = np.array([train_data[i] for i in chosen_data_indexes]) #get next batch of the right size form training data and converts it to np.array
-            #data_x.reshape((imageDim, imageDim, 3))
-
-            #train discriminator
             generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
-            # gan.compile(loss = 'binary_crossentropy', optimizer = 'adam')
-            #generated_x.reshape((imageDim, imageDim, 3))
-            discriminator_x = np.concatenate((data_x, generated_x))#concatenate takes a tuple as input
+            discriminator_x = np.concatenate((data_x, generated_x)) #concatenate takes a tuple as input
             discriminator_y = np.zeros(2*batch_size)
             discriminator_y[:batch_size] = 0.9
             discriminator.trainable = True
@@ -362,6 +352,10 @@ def saveAlbum(e, shape = (3,3)):
     collage *= 255
     cv2.imwrite(output_dir + '/many_%d_epoch_%d.png' % (shape[0]*shape[1], e), collage)
 
+def printIntro():
+    print("input from: ", input_dir, " output from: ", output_dir)
+    print("batch size: ", batch_size, " epochs: ", epochs)
+
 
 #grabbing all training inputs and begin training
 if __name__ == '__main__':
@@ -369,4 +363,5 @@ if __name__ == '__main__':
     batch_size = args.batch
     #X_train = loadMNIST("train")
     x_train = loadPixels()
+    printIntro()
     trainGAN(x_train, epochs = epochs, batch_size=batch_size)
