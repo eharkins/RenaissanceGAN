@@ -154,7 +154,7 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
   # updateLearningRate(new_learning_rate)
   # print("LEARNING RATE DISCRIMINATOR: ", K.get_value(discriminator.optimizer.lr))
   # print("LEARNING RATE GENERATOR: ", K.get_value(generator.optimizer.lr))
-  oldGloss = 100
+  gloss = oldGloss = 100
   increasing_epoch_counter = 0
   for e in range(epochs):
     #loop for total number of batches
