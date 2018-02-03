@@ -327,8 +327,8 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
         if gloss < dloss:
             saveGeneratedImage(e, True)
         if e % 10 == 1:
-            saveAlbum(e)
-          #saveGeneratedImage(e)
+             #saveAlbum(e)
+             saveGeneratedImage(e)
 
         dLosses.append(dloss)
         gLosses.append(gloss)
@@ -381,14 +381,15 @@ def saveGeneratedImage(e, low_loss=False):
     imsave(output_dir + '/generated_image_epoch_%d.png' % e, img)
 
 #save a bunch of random images
-def saveAlbum(e, shape = (10,10)):
+def saveAlbum(e, shape = (3,3)):
     #noise = np.random.normal(0, 1, size=[shape+noise_shape])
     collage = np.empty (shape = (shape[0]*image_shape[0],shape[1]*image_shape[1],image_shape[2]))
     print ("combined image shape is: ", collage.shape)
     for x in range (shape[0]):
-        for y in range (shape[0]):
-            noise = np.random.random(shape+noise_shape)
-            image = generator.predict(noise[x])
+        for y in range (shape[1]):
+            noise = np.random.random(shape+(1,)+noise_shape)
+            image = generator.predict(noise[x,y])
+            print ("image shape is: ", image.shape )
             #place pixel values of image in the collage
             collage[x*image_shape[0]:(x+1)*image_shape[0],y*image_shape[1]:(y+1)*image_shape[1]] = (image)
         # for y in range (shape[1])

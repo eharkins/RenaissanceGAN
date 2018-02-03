@@ -343,6 +343,25 @@ def saveGeneratedImage(e, low_loss=False):
   else:
     cv2.imwrite(output_dir + '/generated_image_epoch_%d.png' % e, img)
 
+#save a bunch of random images
+def saveAlbum(e, shape = (3,3)):
+    #noise = np.random.normal(0, 1, size=[shape+noise_shape])
+    collage = np.empty (shape = (shape[0]*image_shape[0],shape[1]*image_shape[1],image_shape[2]))
+    print ("combined image shape is: ", collage.shape)
+    for x in range (shape[0]):
+        for y in range (shape[1]):
+            noise = np.random.random(shape+(1,)+noise_shape)
+            image = generator.predict(noise[x,y])
+            print ("image shape is: ", image.shape )
+            #place pixel values of image in the collage
+            collage[x*image_shape[0]:(x+1)*image_shape[0],y*image_shape[1]:(y+1)*image_shape[1]] = (image)
+        # for y in range (shape[1])
+        #     image = generator.predict(noise[x,y])
+        #     img = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+        #     img = img*255
+    collage *= 255
+    cv2.imwrite(output_dir + '/many_%d_epoch_%d.png' % (shape[0]*shape[1], e), collage)
+
 
 #grabbing all training inputs and begin training
 if __name__ == '__main__':
