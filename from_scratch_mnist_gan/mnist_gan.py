@@ -216,12 +216,12 @@ seed = np.random.normal(0, 1, size=[1, imageDim, imageDim, 1])
 print ("seed: ", seed.shape)
 
 def updateLearningRate(learning_rate):
-  new_learning_rate = learning_rate/2
+  new_learning_rate = learning_rate*0.9
   print("NEW LEARNING RATE IS: ", new_learning_rate)
   adam = Adam(lr=new_learning_rate, beta_1=0.5)
-  generator.compile(loss = 'mse', optimizer = adam)
-  # discriminator.compile(loss = 'mse', optimizer = adam)
-  gan.compile(loss = 'mse', optimizer = adam)
+  # generator.compile(loss = 'mse', optimizer = adam)
+  discriminator.compile(loss = 'mse', optimizer = adam)
+  # gan.compile(loss = 'mse', optimizer = adam)
 
   return new_learning_rate
 
