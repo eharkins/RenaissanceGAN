@@ -69,7 +69,6 @@ args = parse_args()
 input_dir = "color/" + args.input
 output_dir = "color/" + args.output
 
-
 def loadFaces():
     size = 2429
     #size = 10000
@@ -116,13 +115,12 @@ def plotMNISTInput(arr, dim=(10, 10), figsize=(10, 10), numberOfFpngs=100):
 
 def generateImage(arr):
     magnification = 10
-    img = np.reshape(arr, (imageDim, imageDim, 3))
-    res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+    res = cv2.resize(arr, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
     return res
 
 def visualizeOne():
     arr = generator.predict(seed)
-    res = generateImage(arr)
+    res = generateImage(arr[0])
     cv2.imshow('Generated Image', res) # on windows, i had to install xming
     if cv2.waitKey(1) & 0xFF == ord('q'):
         sys.exit(0)
@@ -199,11 +197,6 @@ flat_size = imageDim**2*3
 #the original one
 generator.add(Dense(35, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 generator.add(Dropout(.1))
-#generator.add(Dense(35, activation = 'sigmoid'))
-#generator.add(Dense(50, activation = 'sigmoid'))
-#generator.add(Dropout(.1))
-#generator.add(Dense(10, activation = 'sigmoid'))
-# generator.add(Dense(35, activation = 'sigmoid'))
 generator.add(Dense(imageDim**2*3, activation = 'sigmoid'))
 generator.add(Dropout(.1))
 generator.add(Reshape((image_shape), input_shape=(imageDim**2*3,)))
@@ -232,6 +225,7 @@ discriminator.add(Conv2D(35, (3, 3), padding='same'))
 discriminator.add(MaxPooling2D(pool_size=(2, 2)))
 #iscriminator.add(Dense(32, activation = 'sigmoid'))
 discriminator.add(Flatten())
+discriminator.add(Dense(35, activation = 'sigmoid', input_dim=imageDim**2*3, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 discriminator.add(Dense(1, activation = 'sigmoid'))
 
 #compiling loss function and optimizer
@@ -277,12 +271,9 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
         for b in range(len(train_data)//batch_size):
             chosen_data_indexes = np.random.randint(1,train_data.shape[0],size = batch_size)
             data_x = np.array([train_data[i] for i in chosen_data_indexes]) #get next batch of the right size form training data and converts it to np.array
-            #data_x.reshape((imageDim, imageDim, 3))
 
             #train discriminator
             generated_x = generator.predict(np.random.random((batch_size,)+noise_shape))
-            # gan.compile(loss = 'binary_crossentropy', optimizer = 'adam')
-            #generated_x.reshape((imageDim, imageDim, 3))
             discriminator_x = np.concatenate((data_x, generated_x))#concatenate takes a tuple as input
             discriminator_y = np.zeros(2*batch_size)
             discriminator_y[:batch_size] = 0.9
@@ -298,31 +289,20 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
             if args.display:
                 visualizeOne()
 
-
-        # save image whenever generator loss dips below discriminator loss
-        # if gloss < dloss:
-        #   arr = generator.predict(seed)
-        #   img = np.reshape(arr, (imageDim, imageDim, 3))
-        #   img = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
-        #   img = img*255
-        #   img = img.astype(np.uint8)
-        #   imsave(output_dir +'/generated_image_epoch_%d.png' % e, img)
-
-        # decrease learning rate whenever d loss starts climbing
-        if gloss > oldGloss:
-            increasing_epoch_counter += 1
-            if increasing_epoch_counter == 6:
-                new_learning_rate = new_learning_rate/2
-                #new_learning_rate = new_learning_rate*0
-                print("NEW LEARNING RATE IS: ", new_learning_rate)
-                adam = Adam(lr=new_learning_rate, beta_1=0.5)
-                # generator.compile(loss = 'mse', optimizer = 'adam')
-                # discriminator.compile(loss = 'mse', optimizer = 'adam')
-                gan.compile(loss = 'mse', optimizer = 'adam')
-                print("gan learning rate:", K.get_value(gan.optimizer.lr))
-                print("generator learning rate:", K.get_value(generator.optimizer.lr))
-                print("discriminator learning rate:", K.get_value(discriminator.optimizer.lr))
-                increasing_epoch_counter = 0
+        # if gloss > oldGloss:
+        #     increasing_epoch_counter += 1
+        #     if increasing_epoch_counter == 6:
+        #         new_learning_rate = new_learning_rate/2
+        #         #new_learning_rate = new_learning_rate*0
+        #         print("NEW LEARNING RATE IS: ", new_learning_rate)
+        #         #adam = Adam(lr=new_learning_rate, beta_1=0.5)
+        #         # generator.compile(loss = 'mse', optimizer = 'adam')
+        #         # discriminator.compile(loss = 'mse', optimizer = 'adam')
+        #         #gan.compile(loss = 'mse', optimizer = 'adam')
+        #         print("gan learning rate:", K.get_value(gan.optimizer.lr))
+        #         print("generator learning rate:", K.get_value(generator.optimizer.lr))
+        #         print("discriminator learning rate:", K.get_value(discriminator.optimizer.lr))
+        #         increasing_epoch_counter = 0
         oldGloss = gloss
         # if e % 20 == 0 and e != 0:
         #     new_learning_rate -= 0.00001
@@ -375,15 +355,13 @@ def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
         plt.close()
 
 def saveGeneratedImage(e, low_loss=False):
-  arr = generator.predict(seed)
-  img = np.reshape(arr, (image_shape))
-  img = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
-  img = img*255
-  img = img.astype(np.uint8)
-  if low_loss:
-    imsave(output_dir + '/low_loss_generated_image_epoch_%d.png' % e, img)
-  else:
-    imsave(output_dir + '/generated_image_epoch_%d.png' % e, img)
+    arr = generator.predict(seed)
+    img = generateImage(arr[0])*255
+    if low_loss:
+        cv2.imwrite(output_dir + '/low_loss_generated_image_epoch_%d.png' % e, img)
+    else:
+        cv2.imwrite(output_dir + '/generated_image_epoch_%d.png' % e, img)
+
 
 #save a bunch of random images
 def saveAlbum(e, shape = (3,3)):
@@ -405,14 +383,15 @@ def saveAlbum(e, shape = (3,3)):
     cv2.imwrite(output_dir + '/many_%d_epoch_%d.png' % (shape[0]*shape[1], e), collage)
 
 
-
+def printIntro():
+    print("input from: ", input_dir, " output from: ", output_dir)
+    print("batch size: ", batch_size, " epochs: ", epochs)
 
 #grabbing all training inputs and begin training
 if __name__ == '__main__':
     epochs = args.epochs
     batch_size = args.batch
-    print ("batch size: ", batch_size, " epochs: ", epochs)
     #X_train = loadMNIST("train")
     x_train = loadPixels()
-    print("x train shape is: ", x_train.shape)
+    printIntro()
     trainGAN(x_train, epochs = epochs, batch_size=batch_size)
