@@ -21,29 +21,6 @@ import cv2
 import argparse
 os.environ["KERAS_BACKEND"] = "tensorflow"
 
-
-# input_dir = "fungi_sprites"
-# output_dir = "fungi_generated"
-
-# input_dir = "color/flower_sprites"
-# output_dir = "color/flower_old_generated"
-
-# input_dir = "color/face"
-# output_dir = "color/face_generated"
-
-# input_dir = "color/sprites"
-# output_dir = "color/sprites_generated"
-
-# input_dir = "color/monsters"
-# output_dir = "color/monsters_generated"
-
-# input_dir = "color/mask_sprites"
-# output_dir = "color/masks_generated"
-
-#side of each image
-#imageDim = 28
-
-
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=12000,
@@ -58,6 +35,8 @@ def parse_args():
                         help='directory of examples (within colors)')
     parser.add_argument('--output', type=str, default='flower_generated',
                         help='directory of output (within colors)')
+    parser.add_argument('--channels', type=int, default=3,
+                        help='color:3 bw: 1')
     parser.add_argument('--display', dest='display', action='store_true')
     parser.add_argument('--no-display', dest='display', action='store_false')
     parser.set_defaults(display=True)
@@ -67,11 +46,11 @@ def parse_args():
 
 args = parse_args()
 
-input_dir = "color/" + args.data + "_sprites"
-output_dir = "color/" + args.data + "_output"
+# input_dir = "color/" + args.data + "_sprites"
+# output_dir = "color/" + args.data + "_output"
 
-# input_dir = "color/" + args.input
-# output_dir = "color/" + args.output
+input_dir = args.input
+output_dir = args.output
 
 
 #change this directory to where hdf5 file is stored
@@ -80,7 +59,7 @@ DATASETS_DIR = os.path.dirname(os.path.realpath(__file__))
 def loadMNIST(dataType):
     #parameter determines whether data is training or testing
     size = 10000
-    f = h5py.File(DATASETS_DIR + "/mnist.hdf5", 'r')
+    f = h5py.File(DATASETS_DIR + "/data/mnist.hdf5", 'r')
     X = f['x_'+dataType][:size]
     maxes = X.max(axis=0)
     for i in range(len(maxes)):
@@ -92,6 +71,7 @@ def loadMNIST(dataType):
     print ("MNIST Dataset LOADED")
 
     return X
+
 
 #generate mnist input images_original
 def plotMNISTInput(arr, dim=(10, 10), figsize=(10, 10), numberOfFpngs=100):
@@ -133,6 +113,8 @@ def visualizeTest(arr):
         sys.exit(0)
 
 def getImageDim():
+    if(input_dir == "data/mnist.hdf5"):
+      return 28
     try:
         files = os.listdir(input_dir)
     except:
@@ -145,9 +127,11 @@ def getImageDim():
 
 
 def loadPixels():
+    if(input_dir == "data/mnist.hdf5"):
+      return loadMNIST("train")
     files = os.listdir(input_dir)
     count = len(files)
-    images = np.empty((count, imageDim, imageDim, 3))
+    images = np.empty((count, imageDim, imageDim, channels))
     for i in range(count):
         pic = cv2.imread(os.path.join(input_dir,files[i]))
 
@@ -164,18 +148,15 @@ if not os.path.exists(output_dir):
 
 
 imageDim = getImageDim()
-
+channels = args.channels
 #defining noise vector size
 noise_vect_size = 10
-image_shape = (imageDim, imageDim, 3)
+image_shape = (imageDim, imageDim, channels)
 
 np.random.seed(1000)
 
 # Optimizer
-#adam = Adam(lr=0.0002, beta_1=0.5)
-#adam = Adam(lr=0.00002, beta_1=0.5)
 adam = Adam(lr=0.0001, beta_1=0.5)
-
 
 #seed= np.random.rand(noise_vect_size)
 seed = np.random.normal(0, 1, size=[1, noise_vect_size])
@@ -183,22 +164,16 @@ seed = np.random.normal(0, 1, size=[1, noise_vect_size])
 #testing sequential model
 generator = Sequential()
 
-image_shape = (imageDim, imageDim, 3)
+image_shape = (imageDim, imageDim, channels)
 
 #stacking layers on model
-#generator.add(Conv2D(filters, kernel_size, strides=1,
 generator.add(Dense(35, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 generator.add(Dropout(.1))
-#generator.add(Dense(35, activation = 'sigmoid'))
-#generator.add(Dense(50, activation = 'sigmoid'))
-#generator.add(Dropout(.1))
-#generator.add(Dense(10, activation = 'sigmoid'))
-# generator.add(Dense(35, activation = 'sigmoid'))
-generator.add(Dense(imageDim**2*3, activation = 'sigmoid'))
+generator.add(Dense(imageDim**2*channels, activation = 'sigmoid'))
 generator.add(Dropout(.1))
-generator.add(Reshape((imageDim, imageDim, 3), input_shape=(imageDim**2*3,)))
+generator.add(Reshape((imageDim, imageDim, channels), input_shape=(imageDim**2*channels,)))
 generator.add(Conv2D(35, (3, 3), padding='same'))
-generator.add(Conv2D(3, (3, 3), padding='same'))
+generator.add(Conv2D(channels, (3, 3), padding='same'))
 #generator.add(Flatten())
 
 #compiling loss function and optimizer
@@ -213,13 +188,7 @@ discriminator.add(Conv2D(35, (3, 3), padding='same'))
 discriminator.add(MaxPooling2D(pool_size=(2, 2)))
 discriminator.add(Flatten())
 
-discriminator.add(Dense(35, activation = 'sigmoid', input_dim=imageDim**2*3, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
-# generator.add(Dropout(.5))
-# discriminator.add(Dense(35, activation = 'sigmoid'))
-# discriminator.add(Dense(35, activation = 'sigmoid'))
-# generator.add(Dropout(.5))
-# discriminator.add(Dense(35, activation = 'sigmoid'))
-# discriminator.add(Dense(35, activation = 'sigmoid'))
+discriminator.add(Dense(35, activation = 'sigmoid', input_dim=imageDim**2*channels, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 discriminator.add(Dense(1, activation = 'sigmoid'))
 
 #compiling loss function and optimizer
@@ -261,6 +230,11 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
         for b in range(len(train_data)//batch_size):
             chosen_data_indexes = np.random.randint(1,train_data.shape[0],size = batch_size)
             data_x = np.array([train_data[i] for i in chosen_data_indexes]) #get next batch of the right size form training data and converts it to np.array
+            data_x = np.reshape(data_x, (batch_size, imageDim, imageDim, channels))
+
+            #train discriminator
+            generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
+            discriminator_x = np.concatenate((data_x, generated_x))#concatenate takes a tuple as input
             generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
             discriminator_x = np.concatenate((data_x, generated_x)) #concatenate takes a tuple as input
             discriminator_y = np.zeros(2*batch_size)
@@ -293,11 +267,8 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
         gLosses.append(gloss)
         print("Discriminator loss: ", dloss)
         print("Generator loss: ", gloss)
-        if e % 10 == 9:
-             #plotGeneratedImages(e)
-             if e % 100 == 99:
-                 plotLoss(e)
-        #      saveModels(e)
+        if e % 10 == 0:
+          plotLoss(e)
 
     plotLoss(e)
 
@@ -306,11 +277,55 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 
 magnification = 10
 
+#generate mnist input images_original
+def plotMNISTInput(arr, dim=(10, 10), figsize=(10, 10), numberOfFpngs=100):
+    #look at input MNIST
+    print("should be generating image")
+    generatedImages = arr.reshape(len(arr), imageDim, imageDim)
+
+    plt.figure(figsize=figsize)
+    for j in range(100):
+        plt.figure(figsize=figsize)
+        i=0
+        print(i)
+        for i in range(generatedImages.shape[0]//numberOfFpngs):
+            plt.subplot(dim[0], dim[1], i+1)
+            plt.imshow(generatedImages[i+j*numberOfFpngs], interpolation='nearest', cmap='gray_r')
+            plt.axis('off')
+    plt.tight_layout()
+    plt.savefig(output_dir + '/from_MNIST_dataset%d.png' %j)
+    plt.close()
+
+
+def generateImage(arr):
+    magnification = 10
+    #img = np.reshape(arr, (imageDim, imageDim, 3))
+    img = arr
+    res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+    return res
+
+def visualizeOne():
+    arr = generator.predict(seed)
+    res = generateImage(arr[0])
+    cv2.imshow('Generated Image', res) # on windows, i had to install xming
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        sys.exit(0)
+
+def visualizeTest(arr):
+    #print ("arr is: ", arr)
+    #print ("image shape is: ", arr.shape)
+    res = generateImage(arr)
+    #print ("new shape is: ", res.shape)
+    #cv2.imshow('Generated Image', res)
+    cv2.imshow('Generated Image', res)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        sys.exit(0)
+
 # Create a wall of generated MNIST images
 def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
         noise = np.random.normal(0, 1, size=[examples, noise_vect_size])
         generatedImages = generator.predict(noise)
-        generatedImages = generatedImages.reshape(examples, imageDim, imageDim, 3)
+        generatedImages = generatedImages.reshape(examples, imageDim, imageDim, channels)
 
         plt.figure(figsize=figsize) #figsize is number of images
         for i in range(generatedImages.shape[0]):
@@ -361,7 +376,6 @@ def printIntro():
 if __name__ == '__main__':
     epochs = args.epochs
     batch_size = args.batch
-    #X_train = loadMNIST("train")
     x_train = loadPixels()
     printIntro()
     trainGAN(x_train, epochs = epochs, batch_size=batch_size)
