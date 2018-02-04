@@ -5,7 +5,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import sys
-from music21 import midi, stream, pitch, note, tempo
+from music21 import midi, stream, pitch, note, tempo, chord
 
 from keras.layers import Input
 from keras.models import Model, Sequential
@@ -41,10 +41,8 @@ data_size = minisong_size*note_size
 arrpeggio = [48, 60, 72, 84, 48, 60, 72, 84]
 arrpeggio[:] = [x - 48 for x in arrpeggio]
 encoded = to_categorical(arrpeggio, note_size)
-print(encoded)
-print(encoded.shape)
 encoded = encoded.reshape(data_size)
-print(encoded)
+encoded[12] = 1
 X_train = np.zeros((1000, data_size))
 for i in range(1000):
     X_train[i] = encoded
@@ -90,18 +88,36 @@ def reMIDIfy(minisong, output):
     t = tempo.MetronomeMark('fast', 240, note.Note(type='quarter'))
     s1.append(t)
     minisong = minisong.reshape((minisong_size, note_size))
-    print(minisong)
-    for j in range(minisong_size):
-        p = pitch.Pitch()
-        p.midi = np.argmax(minisong[j])+48
-        print(p)
-        n = note.Note(pitch = p)
-        n.pitch = p
+    for j in range(len(minisong)):
+        c = []
+        for i in range(len(minisong[0])):
+            #if this pitch is produced with at least 80% likelihood then count it
+            if minisong[j][i]>.8:
+                c.append(i+48)
+                #look up music21 stuff;  These i values/indexes are the notes in a chord
 
-        n.volume.velocity = 255
-        n.quarterLength = 4
+        if(len(c) > 0):
+            p = chord.Chord(c)
+            print("the chord is:      =====    ", p)
+            eventlist = midi.translate.chordToMidiEvents(p)
+            print(eventlist)
+        else:
+            p = chord.Chord(['C3', 'C4', 'C5'])
+        # elif(len(c) ==1):
+        #     p = pitch.Pitch()
+        #     p.midi = c[0]
+        #     print(p.midi)
+        # else:
+        #     n = n.Rest()
+        print("chord: ",  p)
 
-        s1.append(n)
+        # n = note.Note(pitch = p)
+        # n.pitch = p
+
+        p.volume.velocity = 255
+        p.quarterLength = 4
+
+        s1.append(p)
 
     #add a rest at the end, hopefully this will make it longer
     r = note.Rest()
@@ -242,7 +258,7 @@ def train(X_train, epochs=1, batchSize=128):
         print("Discriminator loss: ", dloss)
         print("Generator loss: ", gloss)
 
-        if e == 1 or e % 5 == 0:
+        if e == 1 or e % 50 == 0:
             # saveModels(e)
             arr = generator.predict(seed)
             saveMidi(arr, e)
