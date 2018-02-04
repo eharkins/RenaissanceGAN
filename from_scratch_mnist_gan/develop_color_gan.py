@@ -153,7 +153,6 @@ def loadPixels():
     files = os.listdir(input_dir)
     count = len(files)
     images = np.empty((count, imageDim, imageDim, 3))
-    if args.display:
     for i in range(count):
         pic = cv2.imread(os.path.join(input_dir,files[i]))
 
@@ -193,7 +192,7 @@ image_shape = (imageDim, imageDim, 3);
 
 #stacking layers on model
 #generator.add(Conv2D(filters, kernel_size, strides=1,
-generator.add(Dense(35, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+generator.add(Dense(128, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 generator.add(Dropout(.1))
 #generator.add(Dense(35, activation = 'sigmoid'))
 #generator.add(Dense(50, activation = 'sigmoid'))
@@ -203,7 +202,7 @@ generator.add(Dropout(.1))
 generator.add(Dense(imageDim**2*3, activation = 'sigmoid'))
 generator.add(Dropout(.1))
 generator.add(Reshape((imageDim, imageDim, 3), input_shape=(imageDim**2*3,)))
-generator.add(Conv2D(35, (3, 3), padding='same'))
+generator.add(Conv2D(128, (3, 3), padding='same'))
 generator.add(Conv2D(3, (3, 3), padding='same'))
 #generator.add(Flatten())
 
@@ -213,13 +212,13 @@ generator.compile(loss = 'mse', optimizer = adam)
 #create discriminator
 discriminator = Sequential()
 #discriminator.add(Reshape((imageDim, imageDim, 3), input_shape=(imageDim**2*3,)))
-discriminator.add(Conv2D(35, (3, 3), padding='same', input_shape=(image_shape)))
+discriminator.add(Conv2D(128, (3, 3), padding='same', input_shape=(image_shape)))
 discriminator.add(MaxPooling2D(pool_size=(2, 2)))
-discriminator.add(Conv2D(35, (3, 3), padding='same'))
+discriminator.add(Conv2D(256, (3, 3), padding='same'))
 discriminator.add(MaxPooling2D(pool_size=(2, 2)))
 discriminator.add(Flatten())
 
-discriminator.add(Dense(35, activation = 'sigmoid', input_dim=imageDim**2*3, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+discriminator.add(Dense(64, activation = 'sigmoid', input_dim=imageDim**2*3, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 # generator.add(Dropout(.5))
 # discriminator.add(Dense(35, activation = 'sigmoid'))
 # discriminator.add(Dense(35, activation = 'sigmoid'))
