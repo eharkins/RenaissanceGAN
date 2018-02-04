@@ -72,6 +72,46 @@ def loadMNIST(dataType):
 
     return X
 
+
+#generate mnist input images_original
+def plotMNISTInput(arr, dim=(10, 10), figsize=(10, 10), numberOfFpngs=100):
+    #look at input MNIST
+    print("should be generating image")
+    generatedImages = arr.reshape(len(arr), imageDim, imageDim)
+
+    plt.figure(figsize=figsize)
+    for j in range(100):
+        plt.figure(figsize=figsize)
+        i=0
+        print(i)
+        for i in range(generatedImages.shape[0]//numberOfFpngs):
+            plt.subplot(dim[0], dim[1], i+1)
+            plt.imshow(generatedImages[i+j*numberOfFpngs], interpolation='nearest', cmap='gray_r')
+            plt.axis('off')
+    plt.tight_layout()
+    plt.savefig(output_dir + '/from_MNIST_dataset%d.png' %j)
+    plt.close()
+
+
+def generateImage(arr):
+    magnification = 10
+    img = arr
+    res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+    return res
+
+def visualizeOne():
+    arr = generator.predict(seed)
+    res = generateImage(arr[0])
+    cv2.imshow('Generated Image', res) # on windows, i had to install xming
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        sys.exit(0)
+
+def visualizeTest(arr):
+    res = generateImage(arr)
+    cv2.imshow('Generated Image', res)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        sys.exit(0)
+
 def getImageDim():
     if(input_dir == "data/mnist.hdf5"):
       return 28
@@ -194,8 +234,9 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 
             #train discriminator
             generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
-            # gan.compile(loss = 'binary_crossentropy', optimizer = 'adam')
             discriminator_x = np.concatenate((data_x, generated_x))#concatenate takes a tuple as input
+            generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
+            discriminator_x = np.concatenate((data_x, generated_x)) #concatenate takes a tuple as input
             discriminator_y = np.zeros(2*batch_size)
             discriminator_y[:batch_size] = 0.9
             discriminator.trainable = True
@@ -307,10 +348,34 @@ def saveGeneratedImage(e, low_loss=False):
   else:
     cv2.imwrite(output_dir + '/generated_image_epoch_%d.png' % e, img)
 
+#save a bunch of random images
+def saveAlbum(e, shape = (3,3)):
+    #noise = np.random.normal(0, 1, size=[shape+noise_shape])
+    collage = np.empty (shape = (shape[0]*image_shape[0],shape[1]*image_shape[1],image_shape[2]))
+    print ("combined image shape is: ", collage.shape)
+    for x in range (shape[0]):
+        for y in range (shape[1]):
+            noise = np.random.random(shape+(1,)+noise_shape)
+            image = generator.predict(noise[x,y])
+            print ("image shape is: ", image.shape )
+            #place pixel values of image in the collage
+            collage[x*image_shape[0]:(x+1)*image_shape[0],y*image_shape[1]:(y+1)*image_shape[1]] = (image)
+        # for y in range (shape[1])
+        #     image = generator.predict(noise[x,y])
+        #     img = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+        #     img = img*255
+    collage *= 255
+    cv2.imwrite(output_dir + '/many_%d_epoch_%d.png' % (shape[0]*shape[1], e), collage)
+
+def printIntro():
+    print("input from: ", input_dir, " output from: ", output_dir)
+    print("batch size: ", batch_size, " epochs: ", epochs)
+
 
 #grabbing all training inputs and begin training
 if __name__ == '__main__':
     epochs = args.epochs
     batch_size = args.batch
     x_train = loadPixels()
+    printIntro()
     trainGAN(x_train, epochs = epochs, batch_size=batch_size)
