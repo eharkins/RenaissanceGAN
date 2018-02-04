@@ -52,8 +52,8 @@ def parse_args():
                         help='the batch size')
     # parser.add_argument('--display', type=int, default=0,
     #                     help='display live with opencv')
-    parser.add_argument ('--data', type=str, default='flower',
-                        help='data to parse, ****_sprites should be input, ***_output should be output)')
+    # parser.add_argument ('--data', type=str, default='flower',
+    #                     help='data to parse, ****_sprites should be input, ***_output should be output)')
     parser.add_argument('--input', type=str, default='flower_sprites',
                         help='directory of examples (within colors)')
     parser.add_argument('--output', type=str, default='flower_generated',
@@ -67,11 +67,11 @@ def parse_args():
 
 args = parse_args()
 
-input_dir = "color/" + args.data + "_sprites"
-output_dir = "color/" + args.data + "_output"
+# input_dir = "color/" + args.data + "_sprites"
+# output_dir = "color/" + args.data + "_output"
 
-# input_dir = "color/" + args.input
-# output_dir = "color/" + args.output
+input_dir = "color/" + args.input
+output_dir = "color/" + args.output
 
 
 #change this directory to where hdf5 file is stored
