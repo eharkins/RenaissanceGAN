@@ -176,9 +176,9 @@ generator.add(Dense(128, activation = 'sigmoid', input_dim=noise_vect_size, kern
 generator.add(Dropout(.1))
 generator.add(Dense(imageDim**2*channels, activation = 'sigmoid'))
 generator.add(Dropout(.1))
-generator.add(Reshape((imageDim, imageDim, 3), input_shape=(imageDim**2*channels,)))
-generator.add(Conv2D(128, (3, 3), padding='same'))
-generator.add(Conv2D(3, (3, 3), padding='same'))
+generator.add(Reshape((imageDim, imageDim, channels), input_shape=(imageDim**2*channels,)))
+generator.add(Conv2D(35, (3, 3), padding='same', activation = 'sigmoid'))
+generator.add(Conv2D(channels, (3, 3), padding='same', activation = 'sigmoid'))
 #generator.add(Flatten())
 
 #compiling loss function and optimizer
