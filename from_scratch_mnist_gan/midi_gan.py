@@ -6,6 +6,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import sys
 from music21 import midi, stream, pitch, note, tempo, chord
+import cv2
 
 from keras.layers import Input
 from keras.models import Model, Sequential
@@ -18,6 +19,9 @@ from keras.optimizers import Adam
 from keras import backend as K
 from keras import initializers
 from keras.utils import to_categorical
+
+
+output_dir = "midi_output"
 
 np.set_printoptions(threshold=np.nan)
 
@@ -194,37 +198,25 @@ def plotLoss(epoch):
     print ("Saving loss graph as midi_output/gan_loss_epoch_%d.png" % epoch)
 
 
-# Create a wall of images, use with Xtrain to display input data
-def plotImages(images, file_name, examples=100, dim=(10, 10), figsize=(10, 10)):
-    images = images[0:examples].reshape(examples, minisong_size, note_size)
-    plt.figure(figsize=figsize)
-    for i in range(images.shape[0]):
-        plt.subplot(dim[0], dim[1], i+1)
-        plt.imshow(images[i], interpolation='nearest', cmap='gray_r')
-        plt.axis('off')
-    plt.tight_layout()
-    print("**********saving")
-    plt.savefig(file_name+'.png')
 
-# Create a wall of generated MNIST images
-def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
-    noise = np.random.normal(0, 1, size=[examples, randomDim])
-    generatedImages = generator.predict(noise)
-    generatedImages = generatedImages.reshape(examples, minisong_size, note_size)
+def generateImage(img):
+    magnification = 10
+    res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+    return res
 
-    plt.figure(figsize=figsize)
-    for i in range(generatedImages.shape[0]):
-        plt.subplot(dim[0], dim[1], i+1)
-        plt.imshow(generatedImages[i], interpolation='nearest', cmap='gray_r')
-        plt.axis('off')
-    plt.tight_layout()
-    print("**********saving")
+def visualize(arr):
+    res = generateImage(arr[0])
+    cv2.imshow('Generated Image', res) # on windows, i had to install xming
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        sys.exit(0)
 
-    directory = "midi_output"
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-
-    plt.savefig('midi_output/gan_generated_image_epoch_%d.png' % epoch)
+def saveImage(arr, e, low_loss=False):
+    #arr = generator.predict(seed)
+    img = generateImage(arr[0])*255
+    if low_loss:
+        cv2.imwrite(output_dir + '/low_loss_generated_image_epoch_%d.png' % e, img)
+    else:
+        cv2.imwrite(output_dir + '/generated_image_epoch_%d.png' % e, img)
 
 # Save the generator and discriminator networks (and weights) for later use
 def saveModels(epoch):
@@ -271,12 +263,13 @@ def train(X_train, epochs=1, batchSize=128):
         print("Discriminator loss: ", dloss)
         print("Generator loss: ", gloss)
 
+        arr = generator.predict(seed)
+        visualize(arr)
         if e == 1 or e % 50 == 0:
             # saveModels(e)
-            arr = generator.predict(seed)
+
             saveMidi(arr, e)
-            if e % 50 == 0:
-                plotGeneratedImages(e)
+            saveImage(arr, e)
 
     # Plot losses from every epoch
     plotLoss(e)
