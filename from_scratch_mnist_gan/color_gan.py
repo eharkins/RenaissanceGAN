@@ -63,6 +63,7 @@ def parse_args():
                             help='how many epochs between saving the graph')
     parser.add_argument('--save-image-every', type=int, default=5,
                                 help='how many epochs between printing image')
+
     parser.add_argument('--display', dest='display', action='store_true')
     parser.add_argument('--no-display', dest='display', action='store_false')
     parser.set_defaults(display=True)
