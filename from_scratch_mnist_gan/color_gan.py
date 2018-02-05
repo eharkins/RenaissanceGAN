@@ -53,8 +53,12 @@ def parse_args():
                         help='the number of training steps to take')
     parser.add_argument('--batch', type=int, default=20,
                         help='the batch size')
-    parser.add_argument ('--data', type=str, default='flower',
-                        help='data to parse, ****_sprites should be input, ***_output should be output)')
+    # parser.add_argument ('--data', type=str, default='flower',
+    #                     help='data to parse, ****_sprites should be input, ***_output should be output)')
+    parser.add_argument('--input', type=str, default='flower_sprites',
+                        help='directory of examples (within colors)')
+    parser.add_argument('--output', type=str, default='flower_generated',
+                        help='directory of output (within colors)')
     parser.add_argument('--display', dest='display', action='store_true')
     parser.add_argument('--no-display', dest='display', action='store_false')
     parser.set_defaults(display=True)
@@ -62,8 +66,12 @@ def parse_args():
 
 args = parse_args()
 
-input_dir = "color/" + args.data + "_sprites"
-output_dir = "color/" + args.data + "_output"
+input_dir = "color/" + args.input
+output_dir = "color/" + args.output
+
+
+# input_dir = "color/" + args.data + "_sprites"
+# output_dir = "color/" + args.data + "_output"
 
 def loadFaces():
     size = 2429
