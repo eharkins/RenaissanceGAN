@@ -5,7 +5,8 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import sys
-from music21 import midi, stream, pitch, note, tempo
+from music21 import midi, stream, pitch, note, tempo, chord
+import cv2
 
 from keras.layers import Input
 from keras.models import Model, Sequential
@@ -18,6 +19,11 @@ from keras.optimizers import Adam
 from keras import backend as K
 from keras import initializers
 from keras.utils import to_categorical
+
+
+output_dir = "midi_output"
+
+np.set_printoptions(threshold=np.nan)
 
 K.set_image_dim_ordering('th')
 
@@ -35,19 +41,19 @@ minisong_size = 8
 # Number of data in each note: pitch, length, and veocity. Velocity is currently auto-set to 100.
 
 #use pitches between 48 and 84 so note size is going to be 84-48+1 = 37
-note_size = 37
+lowest_pitch = 30
+highest_pitch = 84
+note_size = highest_pitch-lowest_pitch
 data_size = minisong_size*note_size
 
-arrpeggio = [48, 60, 72, 84, 48, 60, 72, 84]
-arrpeggio[:] = [x - 48 for x in arrpeggio]
-encoded = to_categorical(arrpeggio, note_size)
-print(encoded)
-print(encoded.shape)
-encoded = encoded.reshape(data_size)
-print(encoded)
-X_train = np.zeros((1000, data_size))
-for i in range(1000):
-    X_train[i] = encoded
+# arrpeggio = [48, 60, 72, 84, 48, 60, 72, 84]
+# arrpeggio[:] = [x - 48 for x in arrpeggio]
+# encoded = to_categorical(arrpeggio, note_size)
+# encoded = encoded.reshape(data_size)
+# encoded[12] = 1
+# X_train = np.zeros((1000, data_size))
+# for i in range(1000):
+#     X_train[i] = encoded
 
 def loadMidi():
     mf = midi.MidiFile()
@@ -60,21 +66,28 @@ def loadMidi():
 
     #convert to notes
     notes = s.flat.notes
+
+
     num_songs = int(len(notes)/minisong_size)
+    # print("number of minisongs:  ", num_songs)
     minisongs = np.zeros((num_songs, minisong_size, note_size))
 
+###########################################
     for i in range(num_songs):
         for j in range(minisong_size):
-            for k in range(note_size):
+            # for k in range(note_size):
+            note = notes[i*minisong_size + j]
+            #i don't know if thi gets multiple notes played at the same time / how this works
+            if not note.isChord:
+                minisongs[i][j][note.pitch.midi-lowest_pitch] = 1
+            else:
+                chord_notes = []
+                for p in note.pitches:
+                    # chord_notes.append(p.midi-48)
+                    minisongs[i][j][p.midi-lowest_pitch] = 1
 
-                #i don't know if thi gets multiple notes played at the same time / how this works
-                if not n.isChord:
-                    p = (n.pitch.midi)/37
-                else:
-                    p = (n.pitches[0].midi)/37
-                minisongs[i][j][p] = 1
-
-                print("pitch: ", p)
+            # print("pitch: ", p)
+    minisongs = minisongs.reshape((num_songs, data_size))
     return minisongs
 
 def byteSafe(num):
@@ -90,18 +103,37 @@ def reMIDIfy(minisong, output):
     t = tempo.MetronomeMark('fast', 240, note.Note(type='quarter'))
     s1.append(t)
     minisong = minisong.reshape((minisong_size, note_size))
-    print(minisong)
-    for j in range(minisong_size):
-        p = pitch.Pitch()
-        p.midi = np.argmax(minisong[j])+48
-        print(p)
-        n = note.Note(pitch = p)
-        n.pitch = p
 
-        n.volume.velocity = 255
-        n.quarterLength = 4
+    for j in range(len(minisong)):
+        c = []
+        for i in range(len(minisong[0])):
+            # print("loop iteration:  "  , i)
+            #if this pitch is produced with at least 80% likelihood then count it
+            if minisong[j][i]>.5:
+                # print("should be a note")
+                c.append(i+lowest_pitch)
+                #look up music21 stuff;  These i values/indexes are the notes in a chord
 
-        s1.append(n)
+        if(len(c) > 0):
+            p = chord.Chord(c)
+            eventlist = midi.translate.chordToMidiEvents(p)
+            p.volume.velocity = 255
+            p.quarterLength = 1
+        else:
+            p = note.Rest()
+        # elif(len(c) ==1):
+        #     p = pitch.Pitch()
+        #     p.midi = c[0]
+        #     print(p.midi)
+        # else:
+        #     n = n.Rest()
+
+        # n = note.Note(pitch = p)
+        # n.pitch = p
+
+
+
+        s1.append(p)
 
     #add a rest at the end, hopefully this will make it longer
     r = note.Rest()
@@ -166,37 +198,25 @@ def plotLoss(epoch):
     print ("Saving loss graph as midi_output/gan_loss_epoch_%d.png" % epoch)
 
 
-# Create a wall of images, use with Xtrain to display input data
-def plotImages(images, file_name, examples=100, dim=(10, 10), figsize=(10, 10)):
-    images = images[0:examples].reshape(examples, minisong_size, note_size)
-    plt.figure(figsize=figsize)
-    for i in range(images.shape[0]):
-        plt.subplot(dim[0], dim[1], i+1)
-        plt.imshow(images[i], interpolation='nearest', cmap='gray_r')
-        plt.axis('off')
-    plt.tight_layout()
-    print("**********saving")
-    plt.savefig(file_name+'.png')
 
-# Create a wall of generated MNIST images
-def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
-    noise = np.random.normal(0, 1, size=[examples, randomDim])
-    generatedImages = generator.predict(noise)
-    generatedImages = generatedImages.reshape(examples, minisong_size, note_size)
+def generateImage(img):
+    magnification = 10
+    res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+    return res
 
-    plt.figure(figsize=figsize)
-    for i in range(generatedImages.shape[0]):
-        plt.subplot(dim[0], dim[1], i+1)
-        plt.imshow(generatedImages[i], interpolation='nearest', cmap='gray_r')
-        plt.axis('off')
-    plt.tight_layout()
-    print("**********saving")
+def visualize(arr):
+    res = generateImage(arr[0])
+    cv2.imshow('Generated Image', res) # on windows, i had to install xming
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        sys.exit(0)
 
-    directory = "midi_output"
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-
-    plt.savefig('midi_output/gan_generated_image_epoch_%d.png' % epoch)
+def saveImage(arr, e, low_loss=False):
+    #arr = generator.predict(seed)
+    img = generateImage(arr[0])*255
+    if low_loss:
+        cv2.imwrite(output_dir + '/low_loss_generated_image_epoch_%d.png' % e, img)
+    else:
+        cv2.imwrite(output_dir + '/generated_image_epoch_%d.png' % e, img)
 
 # Save the generator and discriminator networks (and weights) for later use
 def saveModels(epoch):
@@ -215,9 +235,10 @@ def train(X_train, epochs=1, batchSize=128):
             # Get a random set of input noise and images
             noise = np.random.normal(0, 1, size=[batchSize, randomDim])
             imageBatch = X_train[np.random.randint(0, X_train.shape[0], size=batchSize)]
-
+            print("imageBatch size :       ", imageBatch.shape)
             # Generate fake MNIST images
             generatedImages = generator.predict(noise)
+            print("generatedImages size   :        ", generatedImages.shape)
             # print np.shape(imageBatch), np.shape(generatedImages)
             X = np.concatenate([imageBatch, generatedImages])
 
@@ -242,12 +263,13 @@ def train(X_train, epochs=1, batchSize=128):
         print("Discriminator loss: ", dloss)
         print("Generator loss: ", gloss)
 
-        if e == 1 or e % 5 == 0:
+        arr = generator.predict(seed)
+        visualize(arr)
+        if e == 1 or e % 50 == 0:
             # saveModels(e)
-            arr = generator.predict(seed)
+
             saveMidi(arr, e)
-            if e % 50 == 0:
-                plotGeneratedImages(e)
+            saveImage(arr, e)
 
     # Plot losses from every epoch
     plotLoss(e)
@@ -256,13 +278,14 @@ magnification = 10
 
 #seed= np.random.rand(noise_vect_size)
 seed = np.random.normal(0, 1, size=[1, randomDim])
-print(X_train)
-print(X_train.shape)
+# print(X_train)
+# print(X_train.shape)
 if __name__ == '__main__':
     epochs = int(sys.argv[1])
     batch_size = int(sys.argv[2])
     #X_train = loadMNIST("train")
-    #X_train = loadMidi()
+    X_train = loadMidi()
+    # reMIDIfy(X_train[1], "midi_output/test")
     #writeCutSongs(X_train)
     #plotImages(X_train, "midi_input/input_data")
     train(X_train, epochs, batch_size)
