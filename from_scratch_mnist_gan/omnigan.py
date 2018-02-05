@@ -157,13 +157,6 @@ def loadMidi():
     #convert to notes
     notes = s.flat.notes
 
-    print (notes)
-    print ("SAVING TO bach_remastered
-    m = midi.translate.streamToMidiFile(s)
-    m.open("bach_remastered.mid", 'wb')
-    m.write()
-    m.close()
-
     num_songs = int(len(notes)/minisong_size)
     # print("number of minisongs:  ", num_songs)
     minisongs = np.zeros(((num_songs,) + data_shape))
@@ -202,16 +195,17 @@ def reMIDIfy(minisong, output):
                 c.append(i+lowest_pitch)
                 # i indexes are the notes in a chord
 
-        # if(len(c) > 0):
-        #     p = chord.Chord(c)
-        #     p.volume.velocity = 255
-        #     p.quarterLength = 1
         if(len(c) > 0):
-            p = pitch.Pitch()
-            p.midi = c[0] #testing with just 1 note
-            n = note.Note(pitch = p)
+            n = chord.Chord(c)
             n.volume.velocity = 255
             n.quarterLength = 1
+        # print ("c[0] is: ", c)
+        # if(len(c) > 0):
+        #     p = pitch.Pitch()
+        #     p.midi= c[0] #testing with just 1 note
+        #     n = note.Note(pitch = p)
+        #     n.volume.velocity = 255
+        #     n.quarterLength = 1
         else:
             n = note.Rest()
             n.quarterLength = 1
