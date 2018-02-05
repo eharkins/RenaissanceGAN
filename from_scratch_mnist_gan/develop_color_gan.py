@@ -172,8 +172,8 @@ generator.add(Dropout(.1))
 generator.add(Dense(imageDim**2*channels, activation = 'sigmoid'))
 generator.add(Dropout(.1))
 generator.add(Reshape((imageDim, imageDim, channels), input_shape=(imageDim**2*channels,)))
-generator.add(Conv2D(35, (3, 3), padding='same'))
-generator.add(Conv2D(channels, (3, 3), padding='same'))
+generator.add(Conv2D(35, (3, 3), padding='same', activation = 'sigmoid'))
+generator.add(Conv2D(channels, (3, 3), padding='same', activation = 'sigmoid'))
 #generator.add(Flatten())
 
 #compiling loss function and optimizer
@@ -182,9 +182,9 @@ generator.compile(loss = 'mse', optimizer = adam)
 #create discriminator
 discriminator = Sequential()
 #discriminator.add(Reshape((imageDim, imageDim, 3), input_shape=(imageDim**2*3,)))
-discriminator.add(Conv2D(35, (3, 3), padding='same', input_shape=(image_shape)))
+discriminator.add(Conv2D(35, (3, 3), padding='same', activation = 'sigmoid', input_shape=(image_shape)))
 discriminator.add(MaxPooling2D(pool_size=(2, 2)))
-discriminator.add(Conv2D(35, (3, 3), padding='same'))
+discriminator.add(Conv2D(35, (3, 3), padding='same', activation = 'sigmoid'))
 discriminator.add(MaxPooling2D(pool_size=(2, 2)))
 discriminator.add(Flatten())
 
