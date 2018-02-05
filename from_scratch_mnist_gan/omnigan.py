@@ -136,10 +136,11 @@ def visualize(arr):
 lowest_pitch = 30
 highest_pitch = 84
 note_range = highest_pitch-lowest_pitch
+minisong_size = 8
 
 def loadMidi():
     # Number of notes in each data example
-    minisong_size = 8
+
     #use pitches between 48 and 84 so note size is going to be 84-48+1 = 37
 
 
@@ -156,6 +157,12 @@ def loadMidi():
     #convert to notes
     notes = s.flat.notes
 
+    print (notes)
+    print ("SAVING TO bach_remastered
+    m = midi.translate.streamToMidiFile(s)
+    m.open("bach_remastered.mid", 'wb')
+    m.write()
+    m.close()
 
     num_songs = int(len(notes)/minisong_size)
     # print("number of minisongs:  ", num_songs)
@@ -183,33 +190,42 @@ def reMIDIfy(minisong, output):
     s1 = stream.Stream()
     t = tempo.MetronomeMark('fast', 240, note.Note(type='quarter'))
     s1.append(t)
-    #shape is (8, 54, 1)
-    minisong = minisong.reshape((8, note_range))
+    minisong = minisong.reshape((minisong_size, note_range))
+    #minisong = minisong[0]
 
     for j in range(len(minisong)):
         c = []
         for i in range(len(minisong[0])):
-            # print("loop iteration:  "  , i)
             #if this pitch is produced with at least 50% likelihood then count it
             if minisong[j][i]>.5:
                 # print("should be a note")
-                print ("adding note: ", i, " at index: ", j)
                 c.append(i+lowest_pitch)
-                #These i values/indexes are the notes in a chord
+                # i indexes are the notes in a chord
 
+        # if(len(c) > 0):
+        #     p = chord.Chord(c)
+        #     p.volume.velocity = 255
+        #     p.quarterLength = 1
         if(len(c) > 0):
-            p = chord.Chord(c)
-            eventlist = midi.translate.chordToMidiEvents(p)
-            p.volume.velocity = 255
-            p.quarterLength = 1
+            p = pitch.Pitch()
+            p.midi = c[0] #testing with just 1 note
+            n = note.Note(pitch = p)
+            n.volume.velocity = 255
+            n.quarterLength = 1
         else:
-            p = note.Rest()
-        s1.append(p)
+            n = note.Rest()
+            n.quarterLength = 1
+
+        #print ("chord is: ", p.pitches)
+        s1.append(n)
 
     #add a rest at the end, hopefully this will make it longer
     r = note.Rest()
     r.quarterLength = 4
     s1.append(r)
+
+    #print ("stream is: ", s1.flat.notes)
+    #s1.append(p)
 
     mf = midi.translate.streamToMidiFile(s1)
     mf.open(output + ".mid", 'wb')
@@ -217,8 +233,9 @@ def reMIDIfy(minisong, output):
     mf.close()
 
 def saveMidi(notesData, epoch):
-    for x in range(len(notesData)):
-        reMIDIfy(notesData[x], output_dir+"/song_"+str(epoch)+"_"+str(x))
+    f = output_dir+"/song_"+str(epoch)
+    reMIDIfy(notesData[0], f)
+    print (" saving song as ", f)
 
 
 def writeCutSongs(notesData):
@@ -272,13 +289,13 @@ generator = Sequential()
 
 #stacking layers on model
 #generator.add(Conv2D(filters, kernel_size, strides=1,
-generator.add(Dense(128, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+generator.add(Dense(64, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 generator.add(Dropout(.1))
 generator.add(Dense(data_size, activation = 'sigmoid'))
 generator.add(Dropout(.1))
 generator.add(Reshape((data_shape), input_shape=(data_size,)))
-generator.add(Conv2D(128, (3, 3), padding='same'))
-generator.add(Conv2D(channels, (3, 3), padding='same'))
+# generator.add(Conv2D(64, (3, 3), padding='same'))
+# generator.add(Conv2D(channels, (3, 3), padding='same'))
 #generator.add(Flatten())
 
 #compiling loss function and optimizer
@@ -287,13 +304,13 @@ generator.compile(loss = 'mse', optimizer = adam)
 #create discriminator
 discriminator = Sequential()
 #discriminator.add(Reshape((imageDim, imageDim, 3), input_shape=(imageDim**2*3,)))
-discriminator.add(Conv2D(128, (3, 3), padding='same', input_shape=(data_shape)))
+discriminator.add(Conv2D(64, (3, 3), padding='same', input_shape=(data_shape)))
 discriminator.add(MaxPooling2D(pool_size=(2, 2)))
-discriminator.add(Conv2D(256, (3, 3), padding='same'))
-discriminator.add(MaxPooling2D(pool_size=(2, 2)))
+# discriminator.add(Conv2D(128, (3, 3), padding='same'))
+# discriminator.add(MaxPooling2D(pool_size=(2, 2)))
 discriminator.add(Flatten())
 
-discriminator.add(Dense(64, activation = 'sigmoid', input_dim=data_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+discriminator.add(Dense(32, activation = 'sigmoid', input_dim=data_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 discriminator.add(Dense(1, activation = 'sigmoid'))
 
 #compiling loss function and optimizer
