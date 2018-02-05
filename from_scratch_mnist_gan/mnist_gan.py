@@ -207,7 +207,6 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
     #   if increasing_epoch_counter == 3:
     #     new_learning_rate = updateLearningRate(new_learning_rate)
     #     increasing_epoch_counter = 0
-
     oldGloss = gloss
 
     dLosses.append(dloss)
@@ -236,7 +235,6 @@ def updateLearningRate(learning_rate):
   # generator.compile(loss = 'mse', optimizer = adam)
   discriminator.compile(loss = 'mse', optimizer = adam)
   # gan.compile(loss = 'mse', optimizer = adam)
-
   return new_learning_rate
 
 def saveGeneratedImage(e, low_loss=False):
