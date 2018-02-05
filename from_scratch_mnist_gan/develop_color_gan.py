@@ -58,6 +58,10 @@ def parse_args():
                         help='directory of examples (within colors)')
     parser.add_argument('--output', type=str, default='flower_generated',
                         help='directory of output (within colors)')
+    parser.add_argument('--plot-loss-every', type=int, default=20,
+                            help='how many epochs between saving the graph')
+    parser.add_argument('--save-image-every', type=int, default=5,
+                                help='how many epochs between printing image')
     parser.add_argument('--display', dest='display', action='store_true')
     parser.add_argument('--no-display', dest='display', action='store_false')
     parser.set_defaults(display=True)
@@ -285,19 +289,24 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 
         if gloss < dloss:
           saveGeneratedImage(e, True)
-        if e % 10 == 0:
-          saveGeneratedImage(e)
+        # if e % 10 == 0:
+        #   saveGeneratedImage(e)
 
 
         dLosses.append(dloss)
         gLosses.append(gloss)
         print("Discriminator loss: ", dloss)
         print("Generator loss: ", gloss)
-        if e % 10 == 9:
-             #plotGeneratedImages(e)
-             if e % 100 == 99:
-                 plotLoss(e)
-        #      saveModels(e)
+        # if e % 10 == 9:
+        #      #plotGeneratedImages(e)
+        #      if e % 100 == 99:
+        #          plotLoss(e)
+        # #      saveModels(e)
+        if e % args.save_image_every == 0:
+             #saveAlbum(e)
+             saveGeneratedImage(e)
+        if e % args.plot_loss_every == 0:
+            plotLoss(e)
 
     plotLoss(e)
 
