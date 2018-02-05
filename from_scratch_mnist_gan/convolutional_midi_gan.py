@@ -18,7 +18,7 @@ from keras.optimizers import Adam
 from keras import backend as K
 from keras import initializers
 from keras.utils import to_categorical
-from keras.layers.convolutional import Convolution2D, UpSampling2D, Conv2D, MaxPooling2D
+from keras.layers.convolutional import Convolution2D, UpSampling2D, Conv2D, MaxPooling2D, Conv2DTranspose
 
 np.set_printoptions(threshold=np.nan)
 
@@ -56,7 +56,7 @@ channels = 1
 
 def loadMidi():
     mf = midi.MidiFile()
-    mf.open(filename = "bach.mid")
+    mf.open(filename = "data/bach.mid")
     mf.read()
     mf.close()
 
@@ -66,8 +66,9 @@ def loadMidi():
     #convert to notes
     notes = s.flat.notes
 
-
-    num_songs = int(len(notes)/minisong_size)
+    # num_songs = int(len(notes)/minisong_size)
+    # print(num_songs)
+    num_songs = 50
     # print("number of minisongs:  ", num_songs)
     minisongs = np.zeros((num_songs, minisong_size, note_size))
 
@@ -146,7 +147,7 @@ def reMIDIfy(minisong, output):
 
 def saveMidi(notesData, epoch):
 
-    directory = "midi_output"
+    directory = "midi_output_channels_test"
     if not os.path.exists(directory):
         os.makedirs(directory)
     for x in range(len(notesData)):
@@ -166,7 +167,7 @@ adam = Adam(lr=0.0002, beta_1=0.5)
 
 
 
-minisong_shape = (channels, minisong_size, note_size)
+minisong_shape = (minisong_size, note_size, channels)
 
 #testing sequential model
 generator = Sequential()
@@ -177,11 +178,8 @@ generator.add(Dropout(.1))
 generator.add(Dense(data_size, activation = 'sigmoid'))
 generator.add(Dropout(.1))
 generator.add(Reshape(minisong_shape))
-generator.add(Conv2D(16, (3, 3), padding='same', activation = 'sigmoid', input_shape=(data_size*channels,)))
-# generator.add(MaxPooling2D(pool_size=(2, 2), dim_ordering = 'th'))
-generator.add(Conv2D(channels, (3, 3), padding='same', activation = 'sigmoid'))
-# generator.add(MaxPooling2D(pool_size=(2, 2), dim_ordering = 'th'))
-
+Conv2DTranspose(35, (3,24), padding='same', activation='sigmoid', data_format="channels_last")
+Conv2DTranspose(1, (3,24), padding='same', activation='sigmoid', data_format="channels_last")
 #generator.add(Flatten())
 
 #compiling loss function and optimizer
@@ -190,9 +188,9 @@ generator.compile(loss = 'mse', optimizer = adam)
 #create discriminator
 discriminator = Sequential()
 #discriminator.add(Reshape((imageDim, imageDim, 3), input_shape=(imageDim**2*3,)))
-discriminator.add(Conv2D(35, (3, 3), padding='same', activation = 'sigmoid', input_shape=(minisong_shape)))
+discriminator.add(Conv2D(35, (3, 24), padding='same', activation = 'sigmoid', input_shape=(minisong_shape), data_format="channels_last"))
 # discriminator.add(MaxPooling2D(pool_size=(2, 2)))
-discriminator.add(Conv2D(35, (3, 3), padding='same', activation = 'sigmoid'))
+discriminator.add(Conv2D(35, (3, 24), padding='same', activation = 'sigmoid', data_format="channels_last"))
 # discriminator.add(MaxPooling2D(pool_size=(2, 2)))
 discriminator.add(Flatten())
 
@@ -222,7 +220,7 @@ def plotLoss(epoch):
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.legend()
-    plt.savefig('midi_output/gan_loss_epoch_%d.png' % epoch)
+    plt.savefig('midi_output_channels_test/gan_loss_epoch_%d.png' % epoch)
     print ("Saving loss graph as midi_output/gan_loss_epoch_%d.png" % epoch)
 
 
@@ -252,11 +250,11 @@ def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
     plt.tight_layout()
     print("**********saving")
 
-    directory = "midi_output"
+    directory = "midi_output_channels_test"
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    plt.savefig('midi_output/gan_generated_image_epoch_%d.png' % epoch)
+    plt.savefig('midi_output_channels_test/gan_generated_image_epoch_%d.png' % epoch)
 
 # Save the generator and discriminator networks (and weights) for later use
 def saveModels(epoch):
@@ -275,7 +273,7 @@ def train(X_train, epochs=1, batchSize=128):
             # Get a random set of input noise and images
             noise = np.random.normal(0, 1, size=[batchSize, randomDim])
             imageBatch = X_train[np.random.randint(0, X_train.shape[0], size=batchSize)]
-            imageBatch= np.reshape(imageBatch, (batch_size, channels, minisong_size, note_size))
+            imageBatch= np.reshape(imageBatch, (batch_size, minisong_size, note_size, channels))
 
             # Generate fake MNIST images
             generatedImages = generator.predict(noise)
