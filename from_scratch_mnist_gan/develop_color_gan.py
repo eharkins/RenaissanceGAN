@@ -29,12 +29,16 @@ def parse_args():
                         help='the batch size')
     # parser.add_argument('--display', type=int, default=0,
     #                     help='display live with opencv')
-    parser.add_argument ('--data', type=str, default='flower',
-                        help='data to parse, ****_sprites should be input, ***_output should be output)')
+    # parser.add_argument ('--data', type=str, default='flower',
+    #                     help='data to parse, ****_sprites should be input, ***_output should be output)')
     parser.add_argument('--input', type=str, default='flower_sprites',
                         help='directory of examples (within colors)')
     parser.add_argument('--output', type=str, default='flower_generated',
                         help='directory of output (within colors)')
+    parser.add_argument('--plot-loss-every', type=int, default=20,
+                            help='how many epochs between saving the graph')
+    parser.add_argument('--save-image-every', type=int, default=5,
+                                help='how many epochs between printing image')
     parser.add_argument('--channels', type=int, default=3,
                         help='color:3 bw: 1')
     parser.add_argument('--display', dest='display', action='store_true')
@@ -49,8 +53,8 @@ args = parse_args()
 # input_dir = "color/" + args.data + "_sprites"
 # output_dir = "color/" + args.data + "_output"
 
-input_dir = args.input
-output_dir = args.output
+input_dir = "color/" + args.input
+output_dir = "color/" + args.output
 
 
 #change this directory to where hdf5 file is stored
@@ -167,13 +171,14 @@ generator = Sequential()
 image_shape = (imageDim, imageDim, channels)
 
 #stacking layers on model
-generator.add(Dense(35, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+#generator.add(Conv2D(filters, kernel_size, strides=1,
+generator.add(Dense(128, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 generator.add(Dropout(.1))
 generator.add(Dense(imageDim**2*channels, activation = 'sigmoid'))
 generator.add(Dropout(.1))
 generator.add(Reshape((imageDim, imageDim, channels), input_shape=(imageDim**2*channels,)))
-generator.add(Conv2D(35, (3, 3), padding='same'))
-generator.add(Conv2D(channels, (3, 3), padding='same'))
+generator.add(Conv2D(35, (3, 3), padding='same', activation = 'sigmoid'))
+generator.add(Conv2D(channels, (3, 3), padding='same', activation = 'sigmoid'))
 #generator.add(Flatten())
 
 #compiling loss function and optimizer
@@ -182,13 +187,13 @@ generator.compile(loss = 'mse', optimizer = adam)
 #create discriminator
 discriminator = Sequential()
 #discriminator.add(Reshape((imageDim, imageDim, 3), input_shape=(imageDim**2*3,)))
-discriminator.add(Conv2D(35, (3, 3), padding='same', input_shape=(image_shape)))
+discriminator.add(Conv2D(128, (3, 3), padding='same', input_shape=(image_shape)))
 discriminator.add(MaxPooling2D(pool_size=(2, 2)))
-discriminator.add(Conv2D(35, (3, 3), padding='same'))
+discriminator.add(Conv2D(256, (3, 3), padding='same'))
 discriminator.add(MaxPooling2D(pool_size=(2, 2)))
 discriminator.add(Flatten())
 
-discriminator.add(Dense(35, activation = 'sigmoid', input_dim=imageDim**2*channels, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+discriminator.add(Dense(64, activation = 'sigmoid', input_dim=imageDim**2*channels, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 discriminator.add(Dense(1, activation = 'sigmoid'))
 
 #compiling loss function and optimizer
@@ -259,16 +264,19 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 
         if gloss < dloss:
           saveGeneratedImage(e, True)
-        if e % 10 == 0:
-          saveGeneratedImage(e)
+        # if e % 10 == 0:
+        #   saveGeneratedImage(e)
 
 
         dLosses.append(dloss)
         gLosses.append(gloss)
         print("Discriminator loss: ", dloss)
         print("Generator loss: ", gloss)
-        if e % 10 == 0:
-          plotLoss(e)
+        if e % args.save_image_every == 0:
+             #saveAlbum(e)
+             saveGeneratedImage(e)
+        if e % args.plot_loss_every == 0:
+            plotLoss(e)
 
     plotLoss(e)
 
