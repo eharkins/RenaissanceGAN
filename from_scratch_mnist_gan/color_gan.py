@@ -59,6 +59,10 @@ def parse_args():
                         help='directory of examples (within colors)')
     parser.add_argument('--output', type=str, default='flower_generated',
                             help='directory of output (within colors)')
+    parser.add_argument('--plot-loss-every', type=int, default=20,
+                            help='how many epochs between saving the graph')
+    parser.add_argument('--save-image-every', type=int, default=5,
+                                help='how many epochs between printing image')
     parser.add_argument('--display', dest='display', action='store_true')
     parser.add_argument('--no-display', dest='display', action='store_false')
     parser.set_defaults(display=True)
@@ -195,12 +199,12 @@ flat_size = imageDim**2*3
 # generator.add(Conv2D(3, (3, 3), padding='same'))
 
 #the original one
-generator.add(Dense(35, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+generator.add(Dense(128, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 generator.add(Dropout(.1))
 generator.add(Dense(imageDim**2*3, activation = 'sigmoid'))
 generator.add(Dropout(.1))
 generator.add(Reshape((image_shape), input_shape=(imageDim**2*3,)))
-generator.add(Conv2D(35, (3, 3), padding='same'))
+generator.add(Conv2D(128, (3, 3), padding='same'))
 generator.add(Conv2D(3, (3, 3), padding='same'))
 
 
@@ -219,13 +223,13 @@ discriminator = Sequential()
 # discriminator.add(Dense(32, activation = 'sigmoid'))
 
 
-discriminator.add(Conv2D(35, (3, 3), padding='same', input_shape=image_shape))
+discriminator.add(Conv2D(128, (3, 3), padding='same', input_shape=image_shape))
 discriminator.add(MaxPooling2D(pool_size=(2, 2)))
-discriminator.add(Conv2D(35, (3, 3), padding='same'))
+discriminator.add(Conv2D(256, (3, 3), padding='same'))
 discriminator.add(MaxPooling2D(pool_size=(2, 2)))
 #iscriminator.add(Dense(32, activation = 'sigmoid'))
 discriminator.add(Flatten())
-discriminator.add(Dense(35, activation = 'sigmoid', input_dim=imageDim**2*3, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+discriminator.add(Dense(64, activation = 'sigmoid', input_dim=imageDim**2*3, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 discriminator.add(Dense(1, activation = 'sigmoid'))
 
 #compiling loss function and optimizer
@@ -311,19 +315,20 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
         #     gan.compile(loss = 'binary_crossentropy', optimizer = 'adam')
         if gloss < dloss:
             saveGeneratedImage(e, True)
-        if e % 10 == 1:
-             #saveAlbum(e)
-             saveGeneratedImage(e)
+
 
         dLosses.append(dloss)
         gLosses.append(gloss)
         print("Discriminator loss: ", dloss)
         print("Generator loss: ", gloss)
-        if e % 10 == 9:
-             #plotGeneratedImages(e)
-             if e % 50 == 49:
-                 plotLoss(e)
-        #      saveModels(e)
+        # if e % 10 == 9:
+        #      #plotGeneratedImages(e)
+        if e % args.save_image_every == 0:
+             #saveAlbum(e)
+             saveGeneratedImage(e)
+        if e % args.plot_loss_every == 0:
+            plotLoss(e)
+    #      saveModels(e)
 
     plotLoss(e)
 
