@@ -264,6 +264,8 @@ def train(X_train, epochs=1, batchSize=128):
         print("Generator loss: ", gloss)
 
         arr = generator.predict(seed)
+        print ("arr shape is: ", arr.shape)
+        arr = arr.reshape((minisong_size, note_size))
         visualize(arr)
         if e == 1 or e % 50 == 0:
             # saveModels(e)
