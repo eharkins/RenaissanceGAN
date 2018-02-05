@@ -81,23 +81,25 @@ noise_vect_size = 784
 np.random.seed(1000)
 
 # Optimizer
-adam = Adam(lr=0.00004, beta_1=0.5)
+adam = Adam(lr=0.0001, beta_1=0.5)
 
 #testing sequential model
 generator = Sequential()
 
 #stacking layers on model
-generator.add(Conv2D(64, kernel_size=(3, 3), padding='same', activation = 'sigmoid', input_shape=(28,28,1), kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+# generator.add(Conv2D(64, kernel_size=(3, 3), padding='same', activation = 'sigmoid', input_shape=(28,28,1), kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+# # generator.add(Dense(35, activation = 'sigmoid'))
+# # generator.add(Reshape((32,1,1)))
+# # generator.add(UpSampling2D(size=(2, 2)))
+# generator.add(Conv2D(128, kernel_size=(3, 3), padding='same',  activation = 'sigmoid'))
+# generator.add(Conv2D(256, kernel_size=(3, 3), padding='same',  activation = 'sigmoid'))
+# # generator.add(MaxPooling2D(pool_size=(2,2)))
+# # generator.add(Flatten())
+# # generator.add(Dense(imageDim**2, activation = 'sigmoid'))
+# generator.add(Conv2D(1, kernel_size=(3, 3), padding='same',  activation = 'sigmoid'))
+generator.add(Dense(35, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 # generator.add(Dense(35, activation = 'sigmoid'))
-# generator.add(Reshape((32,1,1)))
-# generator.add(UpSampling2D(size=(2, 2)))
-generator.add(Conv2D(128, kernel_size=(3, 3), padding='same',  activation = 'sigmoid'))
-generator.add(Conv2D(256, kernel_size=(3, 3), padding='same',  activation = 'sigmoid'))
-# generator.add(MaxPooling2D(pool_size=(2,2)))
-# generator.add(Flatten())
-# generator.add(Dense(imageDim**2, activation = 'sigmoid'))
-generator.add(Conv2D(1, kernel_size=(3, 3), padding='same',  activation = 'sigmoid'))
-
+generator.add(Dense(imageDim**2, activation = 'sigmoid'))
 
 
 #compiling loss function and optimizer
@@ -106,26 +108,38 @@ generator.compile(loss = 'mse', optimizer = adam)
 #create discriminator
 discriminator = Sequential()
 
-discriminator.add(Conv2D(32, kernel_size=(3, 3), padding='same', activation = 'sigmoid', input_shape=(28,28,1), kernel_initializer=initializers.RandomNormal(stddev=0.02)))
-# discriminator.add(Dense(32, activation = 'sigmoid'))
-# discriminator.add(Reshape((32,1,1)))
-# discriminator.add(UpSampling2D(size=(2, 2)))
-# discriminator.add(Conv2D(32, kernel_size=(3, 3), padding='same'))
-discriminator.add(MaxPooling2D(pool_size=(2,2)))
-discriminator.add(Flatten())
-discriminator.add(Dense(50, activation = 'sigmoid'))
+# discriminator.add(Conv2D(32, kernel_size=(3, 3), padding='same', activation = 'sigmoid', input_shape=(28,28,1), kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+# # discriminator.add(Dense(32, activation = 'sigmoid'))
+# # discriminator.add(Reshape((32,1,1)))
+# # discriminator.add(UpSampling2D(size=(2, 2)))
+# # discriminator.add(Conv2D(32, kernel_size=(3, 3), padding='same'))
+# discriminator.add(MaxPooling2D(pool_size=(2,2)))
+# discriminator.add(Flatten())
+# discriminator.add(Dense(50, activation = 'sigmoid'))
+# discriminator.add(Dense(1, activation = 'sigmoid'))
+discriminator.add(Dense(35, activation = 'sigmoid', input_dim=imageDim**2, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+discriminator.add(Dense(35, activation = 'sigmoid'))
 discriminator.add(Dense(1, activation = 'sigmoid'))
 
 #compiling loss function and optimizer
 discriminator.compile(loss = 'mse', optimizer = adam)
 
 #creating the combined model
+# discriminator.trainable = False
+# gan_input = Input(shape=(imageDim,imageDim,1))
+# discrimInput = generator(gan_input)
+# gan_output = discriminator(discrimInput)
+# gan = Model(inputs = gan_input, outputs = gan_output)
+# gan.compile(loss = 'mse', optimizer = adam)
+
+# Non-conv!!!
 discriminator.trainable = False
-gan_input = Input(shape=(imageDim,imageDim,1))
+gan_input = Input(shape=(noise_vect_size,))
 discrimInput = generator(gan_input)
 gan_output = discriminator(discrimInput)
 gan = Model(inputs = gan_input, outputs = gan_output)
 gan.compile(loss = 'mse', optimizer = adam)
+
 
 dLosses = []
 gLosses = []
@@ -150,7 +164,7 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
   print(discriminator.summary())
   batchCount = len(train_data) / batch_size
   #loop for number of epochs
-  new_learning_rate = 0.00004
+  new_learning_rate = 0.0001
   # updateLearningRate(new_learning_rate)
   # print("LEARNING RATE DISCRIMINATOR: ", K.get_value(discriminator.optimizer.lr))
   # print("LEARNING RATE GENERATOR: ", K.get_value(generator.optimizer.lr))
@@ -163,10 +177,10 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
     for b in range(len(train_data)//batch_size):
       chosen_data_indexes = np.random.randint(1,train_data.shape[0],size = batch_size)
       data_x = np.array([train_data[i] for i in chosen_data_indexes]) #get next batch of the right size form training data and converts it to np.array
-      data_x = np.reshape(data_x, (batch_size, imageDim, imageDim, 1))
+      # data_x = np.reshape(data_x, (batch_size, imageDim, imageDim, 1))
 
       #train discriminator
-      generated_x = generator.predict(np.random.random((batch_size, imageDim, imageDim, 1)))#could use np.random.normal if training fails
+      generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
       discriminator_x = np.concatenate((data_x, generated_x))#concatenate takes a tuple as input
       discriminator_y = np.zeros(2*batch_size)
       discriminator_y[:batch_size] = 0.9
@@ -175,7 +189,7 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 
       #train generator
       discriminator.trainable=False
-      gan_x = np.random.random((batch_size,imageDim, imageDim, 1))
+      gan_x = np.random.random((batch_size,noise_vect_size))
       gan_y = np.ones(batch_size) #creates an array of ones (expected output)
       gloss = gan.train_on_batch(gan_x, gan_y)
 
@@ -188,11 +202,11 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
       saveGeneratedImage(e)
 
     # cut lr in half if gloss increases three epochs in a row
-    if gloss > oldGloss:
-      increasing_epoch_counter += 1
-      if increasing_epoch_counter == 3:
-        new_learning_rate = updateLearningRate(new_learning_rate)
-        increasing_epoch_counter = 0
+    # if gloss > oldGloss:
+    #   increasing_epoch_counter += 1
+    #   if increasing_epoch_counter == 3:
+    #     new_learning_rate = updateLearningRate(new_learning_rate)
+    #     increasing_epoch_counter = 0
 
     oldGloss = gloss
 
@@ -211,8 +225,8 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 
 magnification = 10
 
-#seed= np.random.rand(noise_vect_size)
-seed = np.random.normal(0, 1, size=[1, imageDim, imageDim, 1])
+seed = np.random.normal(0, 1, size=[1, noise_vect_size])
+# seed = np.random.normal(0, 1, size=[1, imageDim, imageDim, 1])
 print ("seed: ", seed.shape)
 
 def updateLearningRate(learning_rate):
@@ -271,7 +285,7 @@ def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
 
 #grabbing all training inputs and begin training
 if __name__ == '__main__':
-  sys.stdout=open('logs/result.txt','w')
+  # sys.stdout=open('logs/result.txt','w')
   epochs = int(sys.argv[1])
   batch_size = int(sys.argv[2])
   x_train = loadMNIST("train")
