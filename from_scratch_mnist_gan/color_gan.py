@@ -69,10 +69,6 @@ args = parse_args()
 input_dir = "color/" + args.input
 output_dir = "color/" + args.output
 
-
-# input_dir = "color/" + args.data + "_sprites"
-# output_dir = "color/" + args.data + "_output"
-
 def loadFaces():
     size = 2429
     #size = 10000
@@ -152,7 +148,7 @@ def getImageDim():
     return height
 
 
-def loadPixels():
+def loadPixels(): #load images and visualize them if enabled
     files = os.listdir(input_dir)
     count = len(files)
     images = np.empty((count, imageDim, imageDim, 3))
@@ -160,7 +156,8 @@ def loadPixels():
         pic = cv2.imread(os.path.join(input_dir,files[i]))
 
         images[i] = pic
-        visualizeTest(pic)
+        if args.display:
+            visualizeTest(pic)
     #return np.reshape(images ,(count, imageDim**2 * 3))/255
     return images/255
 
