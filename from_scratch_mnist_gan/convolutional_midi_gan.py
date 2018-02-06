@@ -51,7 +51,7 @@ channels = 1
 
 MAX_VOL = 255
 
-output_dir = "midi_output"
+output_dir = "midi_output_velocity_encoding"
 
 # arrpeggio = [48, 60, 72, 84, 48, 60, 72, 84]
 # arrpeggio[:] = [x - 48 for x in arrpeggio]
@@ -76,7 +76,7 @@ def loadMidi():
 
     # num_songs = int(len(notes)/minisong_size)
     # print(num_songs)
-    num_songs = 60
+    num_songs = 50
     # print("number of minisongs:  ", num_songs)
     minisongs = np.zeros((num_songs, minisong_size, note_size))
 
@@ -111,7 +111,7 @@ def reMIDIfy(minisong, output):
     t = tempo.MetronomeMark('fast', 240, note.Note(type='quarter'))
     s1.append(t)
     minisong = minisong.reshape((minisong_size, note_size))
-
+    # print(minisong)
     for j in range(len(minisong)):
         c = []
         v = []
@@ -120,7 +120,7 @@ def reMIDIfy(minisong, output):
             #if this pitch is produced with at least 80% likelihood then count it
             curr_pitch_val = minisong[j][i]
             print(minisong[j])
-            if curr_pitch_val>.1:
+            if curr_pitch_val>.15:
                 # print("should be a note")
                 c.append(i+lowest_pitch)
                 v.append(curr_pitch_val)
@@ -128,7 +128,6 @@ def reMIDIfy(minisong, output):
 
         if(len(c) > 0):
             p = chord.Chord(c)
-            eventlist = midi.translate.chordToMidiEvents(p)
             p.volume.velocity = np.max(v)*MAX_VOL
             p.quarterLength = 1
         else:
@@ -158,8 +157,7 @@ def reMIDIfy(minisong, output):
     mf.close()
 
 def saveMidi(notesData, epoch):
-
-    directory = "midi_output_channels_test"
+    directory = "midi_output_velocity_encoding"
     if not os.path.exists(directory):
         os.makedirs(directory)
     for x in range(len(notesData)):
@@ -183,14 +181,14 @@ minisong_shape = (minisong_size, note_size, channels)
 generator = Sequential()
 
 #stacking layers on model
-generator.add(Dense(35, activation = 'sigmoid', input_dim=randomDim, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+generator.add(Dense(10, activation = 'sigmoid', input_dim=randomDim, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 generator.add(Dropout(.1))
 generator.add(Dense(data_size, activation = 'sigmoid'))
 generator.add(Dropout(.1))
 generator.add(Reshape(minisong_shape))
-generator.add(Conv2DTranspose(16, (3, 24), padding='same', activation = 'sigmoid', input_shape=(data_size*channels,), data_format="channels_last"))
-# generator.add(MaxPooling2D(pool_size=(2, 2), dim_ordering = 'th'))
-generator.add(Conv2DTranspose(channels, (3, 24), padding='same', activation = 'sigmoid', data_format="channels_last"))
+# generator.add(Conv2DTranspose(16, (3, 24), padding='same', activation = 'sigmoid', input_shape=(data_size*channels,), data_format="channels_last"))
+# # generator.add(MaxPooling2D(pool_size=(2, 2), dim_ordering = 'th'))
+# generator.add(Conv2DTranspose(channels, (3, 24), padding='same', activation = 'sigmoid', data_format="channels_last"))
 # generator.add(MaxPooling2D(pool_size=(2, 2), dim_ordering = 'th'))
 
 #generator.add(Flatten())
@@ -201,13 +199,13 @@ generator.compile(loss = 'mse', optimizer = adam)
 #create discriminator
 discriminator = Sequential()
 #discriminator.add(Reshape((imageDim, imageDim, 3), input_shape=(imageDim**2*3,)))
-discriminator.add(Conv2D(35, (3, 24), padding='same', activation = 'sigmoid', input_shape=(minisong_shape), data_format="channels_last"))
+discriminator.add(Conv2D(10, (3, 24), padding='same', activation = 'sigmoid', input_shape=(minisong_shape), data_format="channels_last"))
 # discriminator.add(MaxPooling2D(pool_size=(2, 2)))
-discriminator.add(Conv2D(35, (3, 24), padding='same', activation = 'sigmoid', data_format="channels_last"))
+# discriminator.add(Conv2D(35, (3, 24), padding='same', activation = 'sigmoid', data_format="channels_last"))
 # discriminator.add(MaxPooling2D(pool_size=(2, 2)))
 discriminator.add(Flatten())
 
-discriminator.add(Dense(35, activation = 'sigmoid', input_dim=data_size*channels, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+discriminator.add(Dense(10, activation = 'sigmoid', input_dim=data_size*channels, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 discriminator.add(Dense(1, activation = 'sigmoid'))
 
 #compiling loss function and optimizer
@@ -233,21 +231,21 @@ def plotLoss(epoch):
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.legend()
-    plt.savefig('midi_output_channels_test/gan_loss_epoch_%d.png' % epoch)
+    plt.savefig('midi_output_velocity_encoding/gan_loss_epoch_%d.png' % epoch)
     print ("Saving loss graph as midi_output/gan_loss_epoch_%d.png" % epoch)
 
 
 # Create a wall of images, use with Xtrain to display input data
-def plotImages(images, file_name, examples=100, dim=(10, 10), figsize=(10, 10)):
-    images = images[0:examples].reshape(examples, minisong_size, note_size)
-    plt.figure(figsize=figsize)
-    for i in range(images.shape[0]):
-        plt.subplot(dim[0], dim[1], i+1)
-        plt.imshow(images[i], interpolation='nearest', cmap='gray_r')
-        plt.axis('off')
-    plt.tight_layout()
-    print("**********saving")
-    plt.savefig(file_name+'.png')
+# def plotImages(images, file_name, examples=100, dim=(10, 10), figsize=(10, 10)):
+#     images = images[0:examples].reshape(examples, minisong_size, note_size)
+#     plt.figure(figsize=figsize)
+#     for i in range(images.shape[0]):
+#         plt.subplot(dim[0], dim[1], i+1)
+#         plt.imshow(images[i], interpolation='nearest', cmap='gray_r')
+#         plt.axis('off')
+#     plt.tight_layout()
+#     print("**********saving")
+#     plt.savefig(file_name+'.png')
 
 def saveImage(arr, e, low_loss=False):
   img = generateImage(arr[0])*255
@@ -262,30 +260,25 @@ def generateImage(arr):
     res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
     return res
 
+# # Create a wall of generated MNIST images
+# def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
+#     noise = np.random.normal(0, 1, size=[examples, randomDim])
+#     generatedImages = generator.predict(noise)
+#     generatedImages = generatedImages.reshape(examples, minisong_size, note_size)
 
+#     plt.figure(figsize=figsize)
+#     for i in range(generatedImages.shape[0]):
+#         plt.subplot(dim[0], dim[1], i+1)
+#         plt.imshow(generatedImages[i], interpolation='nearest', cmap='gray_r')
+#         plt.axis('off')
+#     plt.tight_layout()
+#     print("**********saving")
 
+#     directory = "midi_output_channels_test"
+#     if not os.path.exists(directory):
+#         os.makedirs(directory)
 
-
-
-# Create a wall of generated MNIST images
-def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
-    noise = np.random.normal(0, 1, size=[examples, randomDim])
-    generatedImages = generator.predict(noise)
-    generatedImages = generatedImages.reshape(examples, minisong_size, note_size)
-
-    plt.figure(figsize=figsize)
-    for i in range(generatedImages.shape[0]):
-        plt.subplot(dim[0], dim[1], i+1)
-        plt.imshow(generatedImages[i], interpolation='nearest', cmap='gray_r')
-        plt.axis('off')
-    plt.tight_layout()
-    print("**********saving")
-
-    directory = "midi_output_channels_test"
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-
-    plt.savefig('midi_output_channels_test/gan_generated_image_epoch_%d.png' % epoch)
+#     plt.savefig('midi_output_channels_test/gan_generated_image_epoch_%d.png' % epoch)
 
 # Save the generator and discriminator networks (and weights) for later use
 def saveModels(epoch):
@@ -331,7 +324,7 @@ def train(X_train, epochs=1, batchSize=128):
         print("Discriminator loss: ", dloss)
         print("Generator loss: ", gloss)
 
-        if e == 1 or e % 50 == 0:
+        if e == 1 or e % 100 == 0:
             # saveModels(e)
             arr = generator.predict(seed)
             saveMidi(arr, e)
@@ -355,4 +348,6 @@ if __name__ == '__main__':
     # reMIDIfy(X_train[1], "midi_output/test")
     #writeCutSongs(X_train)
     #plotImages(X_train, "midi_input/input_data")
+    arr = generator.predict(seed)
+    saveImage(arr, 0)
     train(X_train, epochs, batch_size)

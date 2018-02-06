@@ -133,21 +133,29 @@ def visualize(arr):
 
 
 # music stuff
-lowest_pitch = 30
-highest_pitch = 84
-note_range = highest_pitch-lowest_pitch
+# lowest_pitch = 30
+# highest_pitch = 84
+# note_range = highest_pitch-lowest_pitch
+# minisong_size = 8
+
+# Number of notes in each data example
 minisong_size = 8
 
+# Number of data in each note: pitch, length, and veocity. Velocity is currently auto-set to 100.
+
+#use pitches between 48 and 84 so note size is going to be 84-48+1 = 37
+lowest_pitch = 30
+highest_pitch = 84
+note_size = highest_pitch-lowest_pitch
+data_size = minisong_size*note_size
+
+channels = 1
+
+MAX_VOL = 255
+
 def loadMidi():
-    # Number of notes in each data example
-
-    #use pitches between 48 and 84 so note size is going to be 84-48+1 = 37
-
-
-    data_shape = (minisong_size, note_range, 1)
-
     mf = midi.MidiFile()
-    mf.open(filename = data_source)
+    mf.open(filename = "data/bach.mid")
     mf.read()
     mf.close()
 
@@ -157,69 +165,75 @@ def loadMidi():
     #convert to notes
     notes = s.flat.notes
 
-    num_songs = int(len(notes)/minisong_size)
+    # num_songs = int(len(notes)/minisong_size)
+    # print(num_songs)
+    num_songs = 50
     # print("number of minisongs:  ", num_songs)
-    minisongs = np.zeros(((num_songs,) + data_shape))
+    minisongs = np.zeros((num_songs, minisong_size, note_size))
 
+###########################################
     for i in range(num_songs):
         for j in range(minisong_size):
-            # for k in range(note_range):
+            # for k in range(note_size):
             note = notes[i*minisong_size + j]
-            # calvin doesn't know if thi gets multiple notes played at the same time / how this works
+            #i don't know if thi gets multiple notes played at the same time / how this works
             if not note.isChord:
-                minisongs[i][j][note.pitch.midi-lowest_pitch] = 1
+                minisongs[i][j][note.pitch.midi-lowest_pitch] = note.volume.velocity/255
             else:
                 chord_notes = []
                 for p in note.pitches:
                     # chord_notes.append(p.midi-48)
-                    minisongs[i][j][p.midi-lowest_pitch] = 1
+                    minisongs[i][j][p.midi-lowest_pitch] = note.volume.velocity/255
 
             # print("pitch: ", p)
-    #minisongs = minisongs.reshape((num_songs, minisong_size*note_range))
-    return minisongs, data_shape
+    minisongs = minisongs.reshape((num_songs, data_size))
+    return minisongs
 
 def reMIDIfy(minisong, output):
     # each note
     s1 = stream.Stream()
     t = tempo.MetronomeMark('fast', 240, note.Note(type='quarter'))
     s1.append(t)
-    minisong = minisong.reshape((minisong_size, note_range))
-    #minisong = minisong[0]
-
+    minisong = minisong.reshape((minisong_size, note_size))
+    # print(minisong)
     for j in range(len(minisong)):
         c = []
+        v = []
         for i in range(len(minisong[0])):
-            #if this pitch is produced with at least 50% likelihood then count it
-            if minisong[j][i]>.5:
+            # print("loop iteration:  "  , i)
+            #if this pitch is produced with at least 80% likelihood then count it
+            curr_pitch_val = minisong[j][i]
+            print(minisong[j])
+            if curr_pitch_val>.15:
                 # print("should be a note")
                 c.append(i+lowest_pitch)
-                # i indexes are the notes in a chord
+                v.append(curr_pitch_val)
+                #look up music21 stuff;  These i values/indexes are the notes in a chord
 
         if(len(c) > 0):
-            n = chord.Chord(c)
-            n.volume.velocity = 255
-            n.quarterLength = 1
-        # print ("c[0] is: ", c)
-        # if(len(c) > 0):
-        #     p = pitch.Pitch()
-        #     p.midi= c[0] #testing with just 1 note
-        #     n = note.Note(pitch = p)
-        #     n.volume.velocity = 255
-        #     n.quarterLength = 1
+            p = chord.Chord(c)
+            p.volume.velocity = np.max(v)*MAX_VOL
+            p.quarterLength = 1
         else:
-            n = note.Rest()
-            n.quarterLength = 1
+            p = note.Rest()
+        # elif(len(c) ==1):
+        #     p = pitch.Pitch()
+        #     p.midi = c[0]
+        #     print(p.midi)
+        # else:
+        #     n = n.Rest()
 
-        #print ("chord is: ", p.pitches)
-        s1.append(n)
+        # n = note.Note(pitch = p)
+        # n.pitch = p
+
+
+
+        s1.append(p)
 
     #add a rest at the end, hopefully this will make it longer
     r = note.Rest()
     r.quarterLength = 4
     s1.append(r)
-
-    #print ("stream is: ", s1.flat.notes)
-    #s1.append(p)
 
     mf = midi.translate.streamToMidiFile(s1)
     mf.open(output + ".mid", 'wb')
