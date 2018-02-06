@@ -151,8 +151,18 @@ def loadMidi():
     mf.read()
     mf.close()
 
+
+    tracks = mf.tracks
+    print ("tracks is: ", len(tracks))
+        #convert to track
+    for track in tracks:
+        print ("channels: ", track.getChannels())
+
     #read to stream
     s = midi.translate.midiFileToStream(mf)
+    #tracks = midi.translate.midiStreamToTracks(s)
+    #print ("tracks: ", tracks)
+
 
     #convert to notes
     notes = s.flat.notes
@@ -186,33 +196,38 @@ def reMIDIfy(minisong, output):
     #print ("Mininsong shape is: ", minisong.shape)
     minisong = minisong.reshape((minisong_size, note_range))
     #minisong = minisong[0]
+    MAX_VOL = 255
 
     for j in range(len(minisong)):
-        c = []
+        notes = []
         for i in range(len(minisong[0])):
             #if this pitch is produced with at least 50% likelihood then count it
-            if minisong[j][i]>.5:
+            if minisong[j][i]>.1:
                 # print("should be a note")
-                c.append(i+lowest_pitch)
+                #c.append((i+lowest_pitch, minisong[j][i]))
                 # i indexes are the notes in a chord
 
-        if(len(c) > 0):
-            n = chord.Chord(c)
-            n.volume.velocity = 255
-            n.quarterLength = 1
-        # print ("c[0] is: ", c)
-        # if(len(c) > 0):
-        #     p = pitch.Pitch()
-        #     p.midi= c[0] #testing with just 1 note
-        #     n = note.Note(pitch = p)
-        #     n.volume.velocity = 255
+                p = pitch.Pitch()
+                p.midi = i+lowest_pitch
+                n = note.Note(pitch = p)
+                n.pitch = p
+                n.volume.velocity = minisong[j][i]*MAX_VOL
+                n.quarterLength = 1
+                notes.append(n)
+        #print ("notes is: ", notes)
+        if notes:
+            #print ("adding ", str(len(notes)), " note chord")
+            my_chord = chord.Chord(notes)
+        #     n = chord.Chord(c[])
+        #     n.volume.velocity = c[1]
         #     n.quarterLength = 1
         else:
-            n = note.Rest()
-            n.quarterLength = 1
+            print ("adding rest")
+            my_chord = note.Rest()
+            my_chord.quarterLength = 1
 
         #print ("chord is: ", p.pitches)
-        s1.append(n)
+        s1.append(my_chord)
 
     #add a rest at the end, hopefully this will make it longer
     r = note.Rest()
