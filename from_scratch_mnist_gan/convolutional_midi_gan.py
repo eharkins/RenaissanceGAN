@@ -64,7 +64,7 @@ output_dir = "midi_output"
 
 def loadMidi():
     mf = midi.MidiFile()
-    mf.open(filename = "bach.mid")
+    mf.open(filename = "data/bach.mid")
     mf.read()
     mf.close()
 
@@ -74,8 +74,9 @@ def loadMidi():
     #convert to notes
     notes = s.flat.notes
 
-
-    num_songs = int(len(notes)/minisong_size)
+    # num_songs = int(len(notes)/minisong_size)
+    # print(num_songs)
+    num_songs = 50
     # print("number of minisongs:  ", num_songs)
     minisongs = np.zeros((num_songs, minisong_size, note_size))
 
@@ -158,7 +159,7 @@ def reMIDIfy(minisong, output):
 
 def saveMidi(notesData, epoch):
 
-    directory = "midi_output"
+    directory = "midi_output_channels_test"
     if not os.path.exists(directory):
         os.makedirs(directory)
     for x in range(len(notesData)):
@@ -232,7 +233,7 @@ def plotLoss(epoch):
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.legend()
-    plt.savefig('midi_output/gan_loss_epoch_%d.png' % epoch)
+    plt.savefig('midi_output_channels_test/gan_loss_epoch_%d.png' % epoch)
     print ("Saving loss graph as midi_output/gan_loss_epoch_%d.png" % epoch)
 
 
@@ -280,11 +281,11 @@ def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
     plt.tight_layout()
     print("**********saving")
 
-    directory = "midi_output"
+    directory = "midi_output_channels_test"
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    plt.savefig('midi_output/gan_generated_image_epoch_%d.png' % epoch)
+    plt.savefig('midi_output_channels_test/gan_generated_image_epoch_%d.png' % epoch)
 
 # Save the generator and discriminator networks (and weights) for later use
 def saveModels(epoch):
