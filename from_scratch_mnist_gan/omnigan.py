@@ -35,7 +35,7 @@ def parse_args():
     #                     help='data to parse, ****_sprites should be input, ***_output should be output)')
     parser.add_argument('--input', type=str, default='bach.mid',
                         help='directory of examples (within colors)')
-    parser.add_argument('--output', type=str, default='songs_generated',
+    parser.add_argument('--output', type=str, default='omni_generated',
                         help='directory of output (within colors)')
     parser.add_argument('--plot-every', type=int, default=20,
                             help='how many epochs between saving the graph')
@@ -101,7 +101,7 @@ def getImageDim():
 
 
 def loadPixels():
-
+    channels = 3
     imageDim = getImageDim()
     data_shape = (imageDim, imageDim, 3)
 
@@ -193,6 +193,7 @@ def reMIDIfy(minisong, output):
     s1 = stream.Stream()
     t = tempo.MetronomeMark('fast', 240, note.Note(type='quarter'))
     s1.append(t)
+    #print ("Mininsong shape is: ", minisong.shape)
     minisong = minisong.reshape((minisong_size, note_range))
     #minisong = minisong[0]
     MAX_VOL = 255
@@ -252,6 +253,7 @@ def writeCutSongs(notesData):
     directory = "output/midi_input"
     if not os.path.exists(directory):
         os.makedirs(directory)
+    print ("notes data is: ", len(notesData))
     for x in range(len(notesData)):
         reMIDIfy(notesData[x], directory+"/input_song_"+str(x))
         cv2.imwrite(directory+"/input_score_%d.png" % x, notesData[x]*255)
@@ -264,7 +266,9 @@ def loadData():
         return loadMNIST("train")
     if data_source[-4:] == ".mid":
         print (" MUSIC! ")
-        return loadMidi()
+        song = loadMidi()
+        writeCutSongs(song[0])
+        return song
     else:
         print (" COLOR IMAGES! ")
         return loadPixels()
@@ -287,6 +291,7 @@ seed = np.random.normal(0, 1, size=[1, noise_vect_size])
 x_train, data_shape = loadData() #grabbing all training inputs
 
 channels = data_shape[2]
+print ("channels is: ", channels)
 data_size = data_shape[0]*data_shape[1]*data_shape[2]
 
 #testing sequential model
@@ -401,7 +406,9 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
         if e % args.save_every == 0:
              # saveModels(e)
              arr = generator.predict(seed)
-             saveMidi(arr, e)
+             print ("arr.shape is:", arr.shape)
+             if arr.shape == (1, minisong_size, note_range):
+                 saveMidi(arr, e)
              saveImage(arr, e)
         if e % args.plot_every == 0:
             arr = generator.predict(seed)
@@ -439,6 +446,16 @@ def saveAlbum(e, shape = (3,3)):
     collage *= 255
     cv2.imwrite(output_dir + '/many_%d_epoch_%d.png' % (shape[0]*shape[1], e), collage)
 
+def saveSummary():
+    file = open(output_dir + "/description.txt","w")
+    file.write("generator:")
+    file.write(generator.to_yaml())
+    file.write("discriminator:")
+    file.write(discriminator.to_yaml())
+    file.write("input from: "+ data_source)
+    file.write("batch size: "+ str(batch_size) + " epochs: " + str(epochs))
+    file.close()
+
 def printIntro():
     print("input from: ", data_source, " output to: ", output_dir)
     print("batch size: ", batch_size, " epochs: ", epochs)
@@ -449,5 +466,5 @@ if __name__ == '__main__':
     epochs = args.epochs
     batch_size = args.batch
     printIntro()
-    writeCutSongs(x_train)
+    saveSummary();
     trainGAN(x_train, epochs = epochs, batch_size=batch_size) #begin training
