@@ -167,7 +167,8 @@ def loadMidi():
     #convert to notes
     notes = s.flat.notes
 
-    num_songs = int(len(notes)/minisong_size)
+    # num_songs = int(len(notes)/minisong_size)
+    num_songs = 50
     # print("number of minisongs:  ", num_songs)
     minisongs = np.zeros(((num_songs,) + data_shape))
 
@@ -177,12 +178,12 @@ def loadMidi():
             note = notes[i*minisong_size + j]
             # calvin doesn't know if thi gets multiple notes played at the same time / how this works
             if not note.isChord:
-                minisongs[i][j][note.pitch.midi-lowest_pitch] = 1
+                minisongs[i][j][note.pitch.midi-lowest_pitch] = note.volume.velocity/255
             else:
                 chord_notes = []
                 for p in note.pitches:
                     # chord_notes.append(p.midi-48)
-                    minisongs[i][j][p.midi-lowest_pitch] = 1
+                    minisongs[i][j][p.midi-lowest_pitch] = note.volume.velocity/255
 
             # print("pitch: ", p)
     #minisongs = minisongs.reshape((num_songs, minisong_size*note_range))
@@ -197,7 +198,7 @@ def reMIDIfy(minisong, output):
     minisong = minisong.reshape((minisong_size, note_range))
     #minisong = minisong[0]
     MAX_VOL = 255
-
+    print(minisong)
     for j in range(len(minisong)):
         notes = []
         for i in range(len(minisong[0])):
