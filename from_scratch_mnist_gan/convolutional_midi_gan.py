@@ -68,7 +68,7 @@ def loadMidi():
 
     # num_songs = int(len(notes)/minisong_size)
     # print(num_songs)
-    num_songs = 50
+    num_songs = 60
     # print("number of minisongs:  ", num_songs)
     minisongs = np.zeros((num_songs, minisong_size, note_size))
 
@@ -204,7 +204,7 @@ discriminator.compile(loss = 'mse', optimizer = adam)
 discriminator.trainable = False
 ganInput = Input(shape=(randomDim,))
 x = generator(ganInput)
-print(x)
+# print(x)
 ganOutput = discriminator(x)
 gan = Model(inputs=ganInput, outputs=ganOutput)
 gan.compile(loss='mse', optimizer=adam)
@@ -277,9 +277,9 @@ def train(X_train, epochs=1, batchSize=128):
 
             # Generate fake MNIST images
             generatedImages = generator.predict(noise)
-            print("generatedImages size   :        ", generatedImages.shape)
+            # print("generatedImages size   :        ", generatedImages.shape)
             # print np.shape(imageBatch), np.shape(generatedImages)
-            print("imagebatch size:  ", imageBatch.shape)
+            # print("imagebatch size:  ", imageBatch.shape)
             X = np.concatenate([imageBatch, generatedImages])
 
             # Labels for generated and real data
