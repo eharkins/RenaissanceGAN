@@ -1,0 +1,19 @@
+
+#read to stream
+s = midi.translate.midiFileToStream(mf)
+a = instrument.partitionByInstrument(s)
+
+b = a.flattenParts
+length = len(a.parts)
+print(length)
+arr = [[]]
+i=0
+for part in s.parts:
+    i = i+1
+    notes = part.flat.notes
+    arr.append([])
+    for note in notes:
+        arr[i].append(note)
+
+for l in range(length):
+    print(arr[l])
