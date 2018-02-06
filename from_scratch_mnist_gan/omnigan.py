@@ -407,7 +407,7 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
              # saveModels(e)
              arr = generator.predict(seed)
              print ("arr.shape is:", arr.shape)
-             if arr.shape == (1, minisong_size, note_range):
+             if arr.shape == (1, minisong_size, note_range, channels):
                  saveMidi(arr, e)
              saveImage(arr, e)
         if e % args.plot_every == 0:
