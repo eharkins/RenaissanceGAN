@@ -6,6 +6,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import sys
 from music21 import midi, stream, pitch, note, tempo, chord
+import cv2
+
 
 from keras.layers import Input
 from keras.models import Model, Sequential
@@ -49,6 +51,8 @@ channels = 1
 
 MAX_VOL = 255
 
+output_dir = "midi_output"
+
 # arrpeggio = [48, 60, 72, 84, 48, 60, 72, 84]
 # arrpeggio[:] = [x - 48 for x in arrpeggio]
 # encoded = to_categorical(arrpeggio, note_size)
@@ -71,8 +75,7 @@ def loadMidi():
     notes = s.flat.notes
 
 
-    # num_songs = int(len(notes)/minisong_size)
-    num_songs = 60
+    num_songs = int(len(notes)/minisong_size)
     # print("number of minisongs:  ", num_songs)
     minisongs = np.zeros((num_songs, minisong_size, note_size))
 
@@ -115,6 +118,7 @@ def reMIDIfy(minisong, output):
             # print("loop iteration:  "  , i)
             #if this pitch is produced with at least 80% likelihood then count it
             curr_pitch_val = minisong[j][i]
+            print(minisong[j])
             if curr_pitch_val>.1:
                 # print("should be a note")
                 c.append(i+lowest_pitch)
@@ -125,7 +129,6 @@ def reMIDIfy(minisong, output):
             p = chord.Chord(c)
             eventlist = midi.translate.chordToMidiEvents(p)
             p.volume.velocity = np.max(v)*MAX_VOL
-            print("remidified velocity = ", p.volume.velocity)
             p.quarterLength = 1
         else:
             p = note.Rest()
@@ -332,8 +335,8 @@ def train(X_train, epochs=1, batchSize=128):
             # saveModels(e)
             arr = generator.predict(seed)
             saveMidi(arr, e)
-            if e % 50 == 0:
-                saveImage(arr, e)
+            # if e % 50 == 0:
+            saveImage(arr, e)
 
     # Plot losses from every epoch
     plotLoss(e)
