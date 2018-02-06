@@ -18,7 +18,7 @@ from keras.optimizers import Adam
 from keras import backend as K
 from keras import initializers
 from keras.utils import to_categorical
-from keras.layers.convolutional import Convolution2D, UpSampling2D, Conv2D, MaxPooling2D
+from keras.layers.convolutional import Convolution2D, UpSampling2D, Conv2D, MaxPooling2D, Conv2DTranspose
 
 np.set_printoptions(threshold=np.nan)
 
@@ -27,6 +27,8 @@ K.set_image_dim_ordering('th')
 # Deterministic output.
 # Tired of seeing the same results every time? Remove the line below.
 np.random.seed(1000)
+
+
 
 # The results are a little better when the dimensionality of the random vector is only 10.
 # The dimensionality has been left at 100 for consistency with other GAN implementations.
@@ -44,6 +46,8 @@ note_size = highest_pitch-lowest_pitch
 data_size = minisong_size*note_size
 
 channels = 1
+
+MAX_VOL = 255
 
 # arrpeggio = [48, 60, 72, 84, 48, 60, 72, 84]
 # arrpeggio[:] = [x - 48 for x in arrpeggio]
@@ -67,7 +71,8 @@ def loadMidi():
     notes = s.flat.notes
 
 
-    num_songs = int(len(notes)/minisong_size)
+    # num_songs = int(len(notes)/minisong_size)
+    num_songs = 60
     # print("number of minisongs:  ", num_songs)
     minisongs = np.zeros((num_songs, minisong_size, note_size))
 
@@ -78,12 +83,12 @@ def loadMidi():
             note = notes[i*minisong_size + j]
             #i don't know if thi gets multiple notes played at the same time / how this works
             if not note.isChord:
-                minisongs[i][j][note.pitch.midi-lowest_pitch] = 1
+                minisongs[i][j][note.pitch.midi-lowest_pitch] = note.volume.velocity/255
             else:
                 chord_notes = []
                 for p in note.pitches:
                     # chord_notes.append(p.midi-48)
-                    minisongs[i][j][p.midi-lowest_pitch] = 1
+                    minisongs[i][j][p.midi-lowest_pitch] = note.volume.velocity/255
 
             # print("pitch: ", p)
     minisongs = minisongs.reshape((num_songs, data_size))
@@ -105,18 +110,22 @@ def reMIDIfy(minisong, output):
 
     for j in range(len(minisong)):
         c = []
+        v = []
         for i in range(len(minisong[0])):
             # print("loop iteration:  "  , i)
             #if this pitch is produced with at least 80% likelihood then count it
-            if minisong[j][i]>.5:
+            curr_pitch_val = minisong[j][i]
+            if curr_pitch_val>.1:
                 # print("should be a note")
                 c.append(i+lowest_pitch)
+                v.append(curr_pitch_val)
                 #look up music21 stuff;  These i values/indexes are the notes in a chord
 
         if(len(c) > 0):
             p = chord.Chord(c)
             eventlist = midi.translate.chordToMidiEvents(p)
-            p.volume.velocity = 255
+            p.volume.velocity = np.max(v)*MAX_VOL
+            print("remidified velocity = ", p.volume.velocity)
             p.quarterLength = 1
         else:
             p = note.Rest()
@@ -164,9 +173,7 @@ def writeCutSongs(notesData):
 # Optimizer
 adam = Adam(lr=0.0002, beta_1=0.5)
 
-
-
-minisong_shape = (channels, minisong_size, note_size)
+minisong_shape = (minisong_size, note_size, channels)
 
 #testing sequential model
 generator = Sequential()
@@ -177,9 +184,9 @@ generator.add(Dropout(.1))
 generator.add(Dense(data_size, activation = 'sigmoid'))
 generator.add(Dropout(.1))
 generator.add(Reshape(minisong_shape))
-generator.add(Conv2D(16, (3, 3), padding='same', activation = 'sigmoid', input_shape=(data_size*channels,)))
+generator.add(Conv2DTranspose(16, (3, 24), padding='same', activation = 'sigmoid', input_shape=(data_size*channels,), data_format="channels_last"))
 # generator.add(MaxPooling2D(pool_size=(2, 2), dim_ordering = 'th'))
-generator.add(Conv2D(channels, (3, 3), padding='same', activation = 'sigmoid'))
+generator.add(Conv2DTranspose(channels, (3, 24), padding='same', activation = 'sigmoid', data_format="channels_last"))
 # generator.add(MaxPooling2D(pool_size=(2, 2), dim_ordering = 'th'))
 
 #generator.add(Flatten())
@@ -190,9 +197,9 @@ generator.compile(loss = 'mse', optimizer = adam)
 #create discriminator
 discriminator = Sequential()
 #discriminator.add(Reshape((imageDim, imageDim, 3), input_shape=(imageDim**2*3,)))
-discriminator.add(Conv2D(35, (3, 3), padding='same', activation = 'sigmoid', input_shape=(minisong_shape)))
+discriminator.add(Conv2D(35, (3, 24), padding='same', activation = 'sigmoid', input_shape=(minisong_shape), data_format="channels_last"))
 # discriminator.add(MaxPooling2D(pool_size=(2, 2)))
-discriminator.add(Conv2D(35, (3, 3), padding='same', activation = 'sigmoid'))
+discriminator.add(Conv2D(35, (3, 24), padding='same', activation = 'sigmoid', data_format="channels_last"))
 # discriminator.add(MaxPooling2D(pool_size=(2, 2)))
 discriminator.add(Flatten())
 
@@ -238,6 +245,24 @@ def plotImages(images, file_name, examples=100, dim=(10, 10), figsize=(10, 10)):
     print("**********saving")
     plt.savefig(file_name+'.png')
 
+def saveImage(arr, e, low_loss=False):
+  img = generateImage(arr[0])*255
+  if low_loss:
+    cv2.imwrite(output_dir + '/low_loss_generated_image_epoch_%d.png' % e, img)
+  else:
+    cv2.imwrite(output_dir + '/generated_image_epoch_%d.png' % e, img)
+
+def generateImage(arr):
+    magnification = 10
+    img = arr
+    res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+    return res
+
+
+
+
+
+
 # Create a wall of generated MNIST images
 def plotGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
     noise = np.random.normal(0, 1, size=[examples, randomDim])
@@ -275,13 +300,11 @@ def train(X_train, epochs=1, batchSize=128):
             # Get a random set of input noise and images
             noise = np.random.normal(0, 1, size=[batchSize, randomDim])
             imageBatch = X_train[np.random.randint(0, X_train.shape[0], size=batchSize)]
-            imageBatch= np.reshape(imageBatch, (batch_size, channels, minisong_size, note_size))
+            imageBatch= np.reshape(imageBatch, (batch_size, minisong_size, note_size, channels))
 
             # Generate fake MNIST images
             generatedImages = generator.predict(noise)
-            print("generatedImages size   :        ", generatedImages.shape)
             # print np.shape(imageBatch), np.shape(generatedImages)
-            print("imagebatch size:  ", imageBatch.shape)
             X = np.concatenate([imageBatch, generatedImages])
 
             # Labels for generated and real data
@@ -310,7 +333,7 @@ def train(X_train, epochs=1, batchSize=128):
             arr = generator.predict(seed)
             saveMidi(arr, e)
             if e % 50 == 0:
-                plotGeneratedImages(e)
+                saveImage(arr, e)
 
     # Plot losses from every epoch
     plotLoss(e)
