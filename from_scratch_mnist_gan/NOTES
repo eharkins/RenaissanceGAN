@@ -2,10 +2,14 @@
 #read to stream
 s = midi.translate.midiFileToStream(mf)
 a = instrument.partitionByInstrument(s)
+  #in bach song, for example, this creates a single partition with the instrument piano.
+  #There were previously 6 but they were just separate piano pieces
 
-b = a.flattenParts
+#number of parts/instruments
 length = len(a.parts)
 print(length)
+
+#store the notes per part in 2d array, arr
 arr = [[]]
 i=0
 for part in s.parts:
@@ -15,5 +19,6 @@ for part in s.parts:
     for note in notes:
         arr[i].append(note)
 
-for l in range(length):
-    print(arr[l])
+#this prints the instrument assigned the number 0 in the midi program.  i assume/hope that this is how the order of
+#partitionbyinstrument is determined
+print (instrument.instrumentFromMidiProgram(0))
