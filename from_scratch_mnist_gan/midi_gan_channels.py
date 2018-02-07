@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import sys, os
 import cv2
 import argparse
-from music21 import midi, stream, pitch, note, tempo, chord
+from music21 import midi, stream, pitch, note, tempo, chord, instrument
 os.environ["KERAS_BACKEND"] = "tensorflow"
 
 def parse_args():
@@ -164,11 +164,12 @@ def loadMidi():
                         minisongs[minisong_number][note_in_song][note.pitch.midi-lowest_pitch][channel_number] = note.volume.velocity/255
                     else:
                         for p in note.pitches:
-                            print(p.midi)
+                            # print(p.midi)
                             minisongs[minisong_number][note_in_song][p.midi-lowest_pitch][channel_number] = note.volume.velocity/255
         channel_number = channel_number+1
             # print("pitch: ", p)
     #minisongs = minisongs.reshape((num_songs, notes_per_minisong*note_range))
+    print(instrument_list)
     return minisongs, data_shape
 
 def loadData():
@@ -186,7 +187,7 @@ def loadData():
 
 x_train, data_shape = loadData() #grabbing all training inputs
 channels = data_shape[2]
-print ("channels is: ", channels)
+# print ("channels is: ", channels)
 data_size = data_shape[0]*data_shape[1]*data_shape[2]
 
 
@@ -216,8 +217,8 @@ generator.add(Dropout(.1))
 generator.add(Dense(data_size, activation = 'sigmoid'))
 generator.add(Dropout(.1))
 generator.add(Reshape((data_shape), input_shape=(data_size,)))
-# generator.add(Conv2D(64, (3, 3), padding='same'))
-# generator.add(Conv2D(channels, (3, 3), padding='same'))
+generator.add(Conv2D(64, (3, 3), padding='same'))
+generator.add(Conv2D(channels, (3, 3), padding='same'))
 #generator.add(Flatten())
 
 #compiling loss function and optimizer
@@ -258,8 +259,10 @@ def reMIDIfy(minisong, output):
     minisong = minisong.reshape((notes_per_minisong, note_range, channels))
     #minisong = minisong[0]
     MAX_VOL = 255
-    print(minisong)
+    # print(minisong)
     for curr_channel in range(channels):
+        # inst = instrument.fromString(instrument_list[curr_channel])
+        new_part = stream.Part([instrument_list[curr_channel]])
         for curr_note in range(len(minisong)):
             notes = []
             for curr_pitch in range(len(minisong[0])):
@@ -284,17 +287,18 @@ def reMIDIfy(minisong, output):
             #     n.volume.velocity = c[1]
             #     n.quarterLength = 1
             else:
-                print ("adding rest")
+                # print ("adding rest")
                 my_chord = note.Rest()
                 my_chord.quarterLength = 1
 
             #print ("chord is: ", p.pitches)
-            s1.append(my_chord)
+            new_part.append(my_chord)
+        s1.insert(curr_channel, new_part)
 
     #add a rest at the end, hopefully this will make it longer
-    r = note.Rest()
-    r.quarterLength = 4
-    s1.append(r)
+    # r = note.Rest()
+    # r.quarterLength = 4
+    # s1.append(r)
 
     #print ("stream is: ", s1.flat.notes)
     #s1.append(p)
@@ -307,7 +311,7 @@ def reMIDIfy(minisong, output):
 def saveMidi(notesData, epoch):
     f = output_dir+"/song_"+str(epoch)
     reMIDIfy(notesData[0], f)
-    print (" saving song as ", f)
+    # print (" saving song as ", f)
 
 
 def writeCutSongs(notesData):
@@ -315,7 +319,7 @@ def writeCutSongs(notesData):
     directory = "output/midi_input"
     if not os.path.exists(directory):
         os.makedirs(directory)
-    print ("notes data is: ", len(notesData))
+    # print ("notes data is: ", len(notesData))
     for x in range(len(notesData)):
         reMIDIfy(notesData[x], directory+"/input_song_"+str(x))
         cv2.imwrite(directory+"/input_score_%d.png" % x, notesData[x]*255)
@@ -334,7 +338,7 @@ def plotLoss(epoch):
     plt.legend()
     plt.savefig(output_dir + '/gan_loss_epoch_%d.png' % epoch)
     plt.close()
-    print ("Saving loss graph as "+ output_dir + "/gan_loss_epoch_%d.png" % epoch)
+    # print ("Saving loss graph as "+ output_dir + "/gan_loss_epoch_%d.png" % epoch)
 
 magnification = 10
 
@@ -344,15 +348,6 @@ def printIntro():
 
 def generateImage(arr):
     magnification = 10
-    img = arr
-    res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
-    return res
-
-
-
-def generateImage(arr):
-    magnification = 10
-    #img = np.reshape(arr, (imageDim, imageDim, 3))
     img = arr
     res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
     return res
@@ -410,12 +405,8 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
         for b in range(len(train_data)//batch_size):
             chosen_data_indexes = np.random.randint(1,train_data.shape[0],size = batch_size)
             data_x = np.array([train_data[i] for i in chosen_data_indexes]) #get next batch of the right size from training data
-            #data_x = np.reshape(data_x, ((batch_size) +data_shape))
 
             #train discriminator
-            generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
-
-            discriminator_x = np.concatenate((data_x, generated_x))
             generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
             discriminator_x = np.concatenate((data_x, generated_x)) #concatenate takes a tuple as input
             discriminator_y = np.zeros(2*batch_size)
@@ -450,7 +441,7 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
         if e % args.save_every == 0:
              # saveModels(e)
              arr = generator.predict(seed)
-             print ("arr.shape is:", arr.shape)
+             # print ("arr.shape is:", arr.shape)
              if arr.shape == (1, notes_per_minisong, note_range, channels):
                  saveMidi(arr, e)
              # saveImage(arr, e)

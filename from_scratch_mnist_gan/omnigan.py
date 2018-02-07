@@ -357,9 +357,6 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 
             #train discriminator
             generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
-
-            discriminator_x = np.concatenate((data_x, generated_x))
-            generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
             discriminator_x = np.concatenate((data_x, generated_x)) #concatenate takes a tuple as input
             discriminator_y = np.zeros(2*batch_size)
             discriminator_y[:batch_size] = 0.9
