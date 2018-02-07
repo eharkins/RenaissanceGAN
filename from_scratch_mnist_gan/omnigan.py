@@ -151,24 +151,13 @@ def loadMidi():
     mf.read()
     mf.close()
 
-
-    tracks = mf.tracks
-    print ("tracks is: ", len(tracks))
-        #convert to track
-    for track in tracks:
-        print ("channels: ", track.getChannels())
-
     #read to stream
     s = midi.translate.midiFileToStream(mf)
-    #tracks = midi.translate.midiStreamToTracks(s)
-    #print ("tracks: ", tracks)
-
 
     #convert to notes
     notes = s.flat.notes
 
-    # num_songs = int(len(notes)/minisong_size)
-    num_songs = 50
+    num_songs = int(len(notes)/minisong_size)
     # print("number of minisongs:  ", num_songs)
     minisongs = np.zeros(((num_songs,) + data_shape))
 
@@ -178,12 +167,12 @@ def loadMidi():
             note = notes[i*minisong_size + j]
             # calvin doesn't know if thi gets multiple notes played at the same time / how this works
             if not note.isChord:
-                minisongs[i][j][note.pitch.midi-lowest_pitch] = note.volume.velocity/255
+                minisongs[i][j][note.pitch.midi-lowest_pitch] = 1
             else:
                 chord_notes = []
                 for p in note.pitches:
                     # chord_notes.append(p.midi-48)
-                    minisongs[i][j][p.midi-lowest_pitch] = note.volume.velocity/255
+                    minisongs[i][j][p.midi-lowest_pitch] = 1
 
             # print("pitch: ", p)
     #minisongs = minisongs.reshape((num_songs, minisong_size*note_range))
@@ -197,38 +186,33 @@ def reMIDIfy(minisong, output):
     #print ("Mininsong shape is: ", minisong.shape)
     minisong = minisong.reshape((minisong_size, note_range))
     #minisong = minisong[0]
-    MAX_VOL = 255
-    print(minisong)
+
     for j in range(len(minisong)):
-        notes = []
+        c = []
         for i in range(len(minisong[0])):
             #if this pitch is produced with at least 50% likelihood then count it
-            if minisong[j][i]>.1:
+            if minisong[j][i]>.5:
                 # print("should be a note")
-                #c.append((i+lowest_pitch, minisong[j][i]))
+                c.append(i+lowest_pitch)
                 # i indexes are the notes in a chord
 
-                p = pitch.Pitch()
-                p.midi = i+lowest_pitch
-                n = note.Note(pitch = p)
-                n.pitch = p
-                n.volume.velocity = minisong[j][i]*MAX_VOL
-                n.quarterLength = 1
-                notes.append(n)
-        #print ("notes is: ", notes)
-        if notes:
-            #print ("adding ", str(len(notes)), " note chord")
-            my_chord = chord.Chord(notes)
-        #     n = chord.Chord(c[])
-        #     n.volume.velocity = c[1]
+        if(len(c) > 0):
+            n = chord.Chord(c)
+            n.volume.velocity = 255
+            n.quarterLength = 1
+        # print ("c[0] is: ", c)
+        # if(len(c) > 0):
+        #     p = pitch.Pitch()
+        #     p.midi= c[0] #testing with just 1 note
+        #     n = note.Note(pitch = p)
+        #     n.volume.velocity = 255
         #     n.quarterLength = 1
         else:
-            print ("adding rest")
-            my_chord = note.Rest()
-            my_chord.quarterLength = 1
+            n = note.Rest()
+            n.quarterLength = 1
 
         #print ("chord is: ", p.pitches)
-        s1.append(my_chord)
+        s1.append(n)
 
     #add a rest at the end, hopefully this will make it longer
     r = note.Rest()
@@ -319,7 +303,9 @@ generator.compile(loss = 'mse', optimizer = adam)
 #create discriminator
 discriminator = Sequential()
 #discriminator.add(Reshape((imageDim, imageDim, 3), input_shape=(imageDim**2*3,)))
-discriminator.add(Conv2D(64, (3, 3), padding='same', input_shape=(data_shape)))
+discriminator.add(Conv2D(64, (3, 3), padding='same', input_shape=(data_shape), activation = 'sigmoid'))
+discriminator.add(MaxPooling2D(pool_size=(2, 2)))
+discriminator.add(Conv2D(64, (3, 3), padding='same', input_shape=(data_shape), activation = 'sigmoid'))
 discriminator.add(MaxPooling2D(pool_size=(2, 2)))
 # discriminator.add(Conv2D(128, (3, 3), padding='same'))
 # discriminator.add(MaxPooling2D(pool_size=(2, 2)))
@@ -407,7 +393,6 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
         if e % args.save_every == 0:
              # saveModels(e)
              arr = generator.predict(seed)
-             print ("arr.shape is:", arr.shape)
              if arr.shape == (1, minisong_size, note_range, channels):
                  saveMidi(arr, e)
              saveImage(arr, e)
