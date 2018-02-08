@@ -126,7 +126,7 @@ def generateImage(arr):
     return res
 
 def visualize(arr):
-    res = generateImage(arr[0])
+    res = generateImage(arr)
     cv2.imshow('Generated Image', res) # on windows, i had to install xming
     if cv2.waitKey(1) & 0xFF == ord('q'):
         sys.exit(0)
@@ -386,7 +386,7 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
 
 
             if args.display:
-                arr = generator.predict(seed)
+                arr = generator.predict(seed)[0]
                 visualize(arr)
 
         # if e % 20 == 0 and e != 0:
