@@ -2,12 +2,12 @@ from keras.layers import Input
 from keras.models import Model, Sequential
 from keras.layers.core import Reshape, Dense, Dropout, Flatten
 from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import Convolution2D, UpSampling2D, Conv2D, MaxPooling2D, Conv2DTranspose
+from keras.layers.convolutional import Convolution2D, UpSampling2D, Conv2D, MaxPooling2D
 from keras.layers.normalization import BatchNormalization
 from keras.datasets import mnist
 from keras.optimizers import Adam
 from keras import backend as K
-from keras import initializers, metrics
+from keras import initializers
 import keras.utils
 
 import numpy as np
@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import sys, os
 import cv2
 import argparse
-from music21 import midi, stream, pitch, note, tempo, chord
+from music21 import midi, stream, pitch, note, tempo, chord, instrument
 os.environ["KERAS_BACKEND"] = "tensorflow"
 
 def parse_args():
@@ -81,13 +81,6 @@ def loadMNIST(dataType):
 
     return X, data_shape
 
-
-def generateImage(arr):
-    magnification = 10
-    img = arr
-    res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
-    return res
-
 def getImageDim():
     try:
         files = os.listdir(data_source)
@@ -99,11 +92,10 @@ def getImageDim():
     #returns height of first image
     return height
 
-
 def loadPixels():
     channels = 3
     imageDim = getImageDim()
-    data_shape = (imageDim, imageDim, 3)
+    data_shape = (imageDim, imageDim, channels)
 
     files = os.listdir(data_source)
     count = len(files)
@@ -118,65 +110,145 @@ def loadPixels():
     #return images
     #return np.reshape(images ,(count, imageDim**2 * 3))/255
 
-def generateImage(arr):
-    magnification = 10
-    #img = np.reshape(arr, (imageDim, imageDim, 3))
-    img = arr
-    res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
-    return res
-
-def visualize(arr):
-    res = generateImage(arr[0])
-    cv2.imshow('Generated Image', res) # on windows, i had to install xming
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        sys.exit(0)
-
-
 # music stuff
 lowest_pitch = 30
-highest_pitch = 84
+highest_pitch = 96
 note_range = highest_pitch-lowest_pitch
-minisong_size = 8
+notes_per_minisong = 8
+instrument_list = []
 
 def loadMidi():
     # Number of notes in each data example
 
     #use pitches between 48 and 84 so note size is going to be 84-48+1 = 37
 
-
-    data_shape = (minisong_size, note_range, 1)
-
     mf = midi.MidiFile()
     mf.open(filename = data_source)
     mf.read()
     mf.close()
 
+    # tracks = mf.tracks
+    # print ("tracks is: ", len(tracks))
+    #     #convert to track
+    # for track in tracks:
+    #     print ("channels: ", track.getChannels())
+
     #read to stream
     s = midi.translate.midiFileToStream(mf)
+    # a = instrument.partitionByInstrument(s)
 
-    #convert to notes
-    notes = s.flat.notes
+    #number of parts/instruments
+    tracks = s.parts
+    channels = len(tracks)
+    data_shape = (notes_per_minisong, note_range, channels)
 
-    num_songs = int(len(notes)/minisong_size)
+    # num_songs = int(len(notes)/notes_per_minisong)
+    num_songs = 50
     # print("number of minisongs:  ", num_songs)
     minisongs = np.zeros(((num_songs,) + data_shape))
 
-    for i in range(num_songs):
-        for j in range(minisong_size):
-            # for k in range(note_range):
-            note = notes[i*minisong_size + j]
-            # calvin doesn't know if thi gets multiple notes played at the same time / how this works
-            if not note.isChord:
-                minisongs[i][j][note.pitch.midi-lowest_pitch] = 1
-            else:
-                chord_notes = []
-                for p in note.pitches:
-                    # chord_notes.append(p.midi-48)
-                    minisongs[i][j][p.midi-lowest_pitch] = 1
-
+    channel_number=0
+    for part in tracks:
+        global instrument_list
+        instrument_list.append(part.getInstrument())
+        notes = part.flat.notes
+        for minisong_number in range(num_songs):
+            for note_in_song in range(notes_per_minisong):
+                #based on minisong which you are on plus the note within that minisong -- get note
+                length = len(notes)
+                index_of_notes = minisong_number*notes_per_minisong + note_in_song
+                if index_of_notes < length:
+                    note = notes[index_of_notes]
+                    if not note.isChord:
+                        #minisong[song number, note in song, onehot index of pitch, channel] = the pitch normalized so lowest possible pitch is 0
+                        minisongs[minisong_number][note_in_song][note.pitch.midi-lowest_pitch][channel_number] = note.volume.velocity/255
+                    else:
+                        for p in note.pitches:
+                            # print(p.midi)
+                            minisongs[minisong_number][note_in_song][p.midi-lowest_pitch][channel_number] = note.volume.velocity/255
+        channel_number = channel_number+1
             # print("pitch: ", p)
-    #minisongs = minisongs.reshape((num_songs, minisong_size*note_range))
+    #minisongs = minisongs.reshape((num_songs, notes_per_minisong*note_range))
+    print(instrument_list)
     return minisongs, data_shape
+
+def loadData():
+    if(data_source[-6:] == ".hdf5"):
+        print (" MNIST! ")
+        return loadMNIST("train")
+    if data_source[-4:] == ".mid":
+        print (" MUSIC! ")
+        # song = loadMidi()
+        # writeCutSongs(song[0])
+        return loadMidi()
+    else:
+        print (" COLOR IMAGES! ")
+        return loadPixels()
+
+x_train, data_shape = loadData() #grabbing all training inputs
+channels = data_shape[2]
+# print ("channels is: ", channels)
+data_size = data_shape[0]*data_shape[1]*data_shape[2]
+
+
+#defining noise vector size
+noise_vect_size = 10
+np.random.seed(1000)
+
+
+# Optimizer
+adam = Adam(lr=0.0001, beta_1=0.5)
+
+#seed= np.random.rand(noise_vect_size)
+seed = np.random.normal(0, 1, size=[1, noise_vect_size])
+
+
+#testing sequential model
+generator = Sequential()
+
+
+#data_shape = (imageDim, imageDim, channels)
+
+
+#stacking layers on model
+#generator.add(Conv2D(filters, kernel_size, strides=1,
+generator.add(Dense(64, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+generator.add(Dropout(.1))
+generator.add(Dense(data_size, activation = 'sigmoid'))
+generator.add(Dropout(.1))
+generator.add(Reshape((data_shape), input_shape=(data_size,)))
+generator.add(Conv2D(64, (3, 3), padding='same'))
+generator.add(Conv2D(channels, (3, 3), padding='same'))
+#generator.add(Flatten())
+
+#compiling loss function and optimizer
+generator.compile(loss = 'mse', optimizer = adam)
+
+#create discriminator
+discriminator = Sequential()
+#discriminator.add(Reshape((imageDim, imageDim, 3), input_shape=(imageDim**2*3,)))
+discriminator.add(Conv2D(64, (3, 3), padding='same', input_shape=(data_shape)))
+discriminator.add(MaxPooling2D(pool_size=(2, 2)))
+# discriminator.add(Conv2D(128, (3, 3), padding='same'))
+# discriminator.add(MaxPooling2D(pool_size=(2, 2)))
+discriminator.add(Flatten())
+
+discriminator.add(Dense(32, activation = 'sigmoid', input_dim=data_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+discriminator.add(Dense(1, activation = 'sigmoid'))
+
+#compiling loss function and optimizer
+discriminator.compile(loss = 'mse', optimizer = adam)
+
+#creating the combined model
+discriminator.trainable = False
+gan_input = Input(shape=(noise_vect_size,))
+discrimInput = generator(gan_input)
+gan_output = discriminator(discrimInput)
+gan = Model(inputs = gan_input, outputs = gan_output)
+gan.compile(loss = 'mse', optimizer = adam)
+
+dLosses = []
+gLosses = []
 
 def reMIDIfy(minisong, output):
     # each note
@@ -184,40 +256,49 @@ def reMIDIfy(minisong, output):
     t = tempo.MetronomeMark('fast', 240, note.Note(type='quarter'))
     s1.append(t)
     #print ("Mininsong shape is: ", minisong.shape)
-    minisong = minisong.reshape((minisong_size, note_range))
+    minisong = minisong.reshape((notes_per_minisong, note_range, channels))
     #minisong = minisong[0]
+    MAX_VOL = 255
+    # print(minisong)
+    for curr_channel in range(channels):
+        # inst = instrument.fromString(instrument_list[curr_channel])
+        new_part = stream.Part([instrument_list[curr_channel]])
+        for curr_note in range(len(minisong)):
+            notes = []
+            for curr_pitch in range(len(minisong[0])):
+                #if this pitch is produced with at least 50% likelihood then count it
+                if minisong[curr_note][curr_pitch][curr_channel]>.1:
+                    # print("should be a note")
+                    #c.append((i+lowest_pitch, minisong[j][i]))
+                    # i indexes are the notes in a chord
 
-    for j in range(len(minisong)):
-        c = []
-        for i in range(len(minisong[0])):
-            #if this pitch is produced with at least 50% likelihood then count it
-            if minisong[j][i]>.5:
-                # print("should be a note")
-                c.append(i+lowest_pitch)
-                # i indexes are the notes in a chord
+                    p = pitch.Pitch()
+                    p.midi = curr_pitch+lowest_pitch
+                    n = note.Note(pitch = p)
+                    n.pitch = p
+                    n.volume.velocity = minisong[curr_note][curr_pitch][curr_channel]*MAX_VOL
+                    n.quarterLength = 1
+                    notes.append(n)
+            #print ("notes is: ", notes)
+            if notes:
+                #print ("adding ", str(len(notes)), " note chord")
+                my_chord = chord.Chord(notes)
+            #     n = chord.Chord(c[])
+            #     n.volume.velocity = c[1]
+            #     n.quarterLength = 1
+            else:
+                # print ("adding rest")
+                my_chord = note.Rest()
+                my_chord.quarterLength = 1
 
-        if(len(c) > 0):
-            n = chord.Chord(c)
-            n.volume.velocity = 255
-            n.quarterLength = 1
-        # print ("c[0] is: ", c)
-        # if(len(c) > 0):
-        #     p = pitch.Pitch()
-        #     p.midi= c[0] #testing with just 1 note
-        #     n = note.Note(pitch = p)
-        #     n.volume.velocity = 255
-        #     n.quarterLength = 1
-        else:
-            n = note.Rest()
-            n.quarterLength = 1
-
-        #print ("chord is: ", p.pitches)
-        s1.append(n)
+            #print ("chord is: ", p.pitches)
+            new_part.append(my_chord)
+        s1.insert(curr_channel, new_part)
 
     #add a rest at the end, hopefully this will make it longer
-    r = note.Rest()
-    r.quarterLength = 4
-    s1.append(r)
+    # r = note.Rest()
+    # r.quarterLength = 4
+    # s1.append(r)
 
     #print ("stream is: ", s1.flat.notes)
     #s1.append(p)
@@ -230,7 +311,7 @@ def reMIDIfy(minisong, output):
 def saveMidi(notesData, epoch):
     f = output_dir+"/song_"+str(epoch)
     reMIDIfy(notesData[0], f)
-    print (" saving song as ", f)
+    # print (" saving song as ", f)
 
 
 def writeCutSongs(notesData):
@@ -238,188 +319,44 @@ def writeCutSongs(notesData):
     directory = "output/midi_input"
     if not os.path.exists(directory):
         os.makedirs(directory)
-    print ("notes data is: ", len(notesData))
+    # print ("notes data is: ", len(notesData))
     for x in range(len(notesData)):
         reMIDIfy(notesData[x], directory+"/input_song_"+str(x))
         cv2.imwrite(directory+"/input_score_%d.png" % x, notesData[x]*255)
 
 #end of music
 
-def loadData():
-    if(data_source[-6:] == ".hdf5"):
-        print (" MNIST! ")
-        return loadMNIST("train")
-    if data_source[-4:] == ".mid":
-        print (" MUSIC! ")
-        song = loadMidi()
-        writeCutSongs(song[0])
-        return song
-    else:
-        print (" COLOR IMAGES! ")
-        return loadPixels()
-
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
-
-#defining noise vector size
-noise_vect_size = 10
-np.random.seed(1000)
-
-
-# Optimizer
-adam = Adam(lr=0.0001, beta_1=0.5)
-
-#seed= np.random.rand(noise_vect_size)
-seed = np.random.normal(0, 1, size=[1, noise_vect_size])
-#seed = np.random.rand(1, noise_vect_size)
-
-x_train, data_shape = loadData() #grabbing all training inputs
-
-channels = data_shape[2]
-print ("channels is: ", channels)
-data_size = data_shape[0]*data_shape[1]*data_shape[2]
-
-#testing sequential model
-generator = Sequential()
-
-
-#data_shape = (imageDim, imageDim, channels)
-
-
-#stacking layers on model
-#generator.add(Conv2D(filters, kernel_size, strides=1,
-generator.add(Dense(64, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
-#could random normal be responsible for lack of color variation?
-generator.add(Dropout(.1))
-generator.add(Dense(data_size, activation = 'sigmoid'))
-generator.add(Dropout(.1))
-generator.add(Reshape((data_shape), input_shape=(data_size,)))
-generator.add(Conv2DTranspose(64, (3, 3), strides = (1,1), padding='same', activation = 'sigmoid'))
-generator.add(Conv2DTranspose(64, (3, 3), strides = (1,1), padding='same', activation = 'sigmoid'))
-#generator.add(BatchNormalization(momentum=.99))
-generator.add(Conv2DTranspose(channels, (3, 3), strides = (1,1), padding='same', activation = 'sigmoid'))
-# generator.add(Conv2D(channels, (3, 3), padding='same'))
-#generator.add(Flatten())
-
-#compiling loss function and optimizer
-generator.compile(loss = 'binary_crossentropy', optimizer = adam)
-
-#create discriminator
-discriminator = Sequential()
-#discriminator.add(Reshape((imageDim, imageDim, 3), input_shape=(imageDim**2*3,)))
-discriminator.add(Conv2D(64, (3, 3), padding='same', input_shape=(data_shape), activation = 'sigmoid'))
-# discriminator.add(Dropout(.25))
-discriminator.add(MaxPooling2D(pool_size=(2, 2))) #max pooling is very important! without it, the GAN takes longer and produces only noise
-discriminator.add(Conv2D(64, (3, 3), padding='same', input_shape=(data_shape), activation = 'sigmoid'))
-# discriminator.add(Dropout(.25))
-discriminator.add(MaxPooling2D(pool_size=(2, 2)))
-discriminator.add(Conv2D(64, (3, 3), padding='same', input_shape=(data_shape), activation = 'sigmoid'))
-# discriminator.add(Dropout(.25))
-discriminator.add(MaxPooling2D(pool_size=(2, 2)))
-# discriminator.add(Conv2D(128, (3, 3), padding='same'))
-# discriminator.add(MaxPooling2D(pool_size=(2, 2)))
-discriminator.add(Flatten())
-
-discriminator.add(Dense(32, activation = 'sigmoid', input_dim=data_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
-discriminator.add(Dense(1, activation = 'sigmoid'))
-
-#compiling loss function and optimizer
-discriminator.compile(loss = 'binary_crossentropy', optimizer = adam, metrics = ['accuracy'])
-
-#creating the combined model
-discriminator.trainable = False
-gan_input = Input(shape=(noise_vect_size,))
-discrimInput = generator(gan_input)
-gan_output = discriminator(discrimInput)
-gan = Model(inputs = gan_input, outputs = gan_output)
-gan.compile(loss = 'binary_crossentropy', optimizer = adam)
-
-dLosses = []
-gLosses = []
-accuracies=[]
 
 def plotLoss(epoch):
     plt.figure(figsize=(10, 8))
     plt.plot(dLosses, label='Discriminitive loss')
     plt.plot(gLosses, label='Generative loss')
-    plt.plot(accuracies, label='Accuracy')
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.legend()
     plt.savefig(output_dir + '/gan_loss_epoch_%d.png' % epoch)
     plt.close()
-    print ("Saving loss graph as "+ output_dir + "/gan_loss_epoch_%d.png" % epoch)
-
-
-#method for creating batches of trainable data and training
-def trainGAN(train_data, epochs=20, batch_size=10000):
-    batchCount = len(train_data) / batch_size
-    #loop for number of epochs
-    # new_learning_rate = 0.0002
-
-    for e in range(1, epochs+1):
-        #loop for total number of batches
-        print ('Epoch:', e)
-        print ('Batches per epoch:', batchCount)
-        for b in range(len(train_data)//batch_size):
-            chosen_data_indexes = np.random.randint(1,train_data.shape[0],size = batch_size)
-            data_x = np.array([train_data[i] for i in chosen_data_indexes]) #get next batch of the right size from training data
-            #data_x = np.reshape(data_x, ((batch_size) +data_shape))
-
-            #train discriminator
-            generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
-            discriminator_x = np.concatenate((data_x, generated_x)) #concatenate takes a tuple as input
-            discriminator_y = np.zeros(2*batch_size)
-            discriminator_y[:batch_size] = 1
-            discriminator.trainable = True
-            dloss, accuracy = discriminator.train_on_batch(discriminator_x,discriminator_y)
-
-            #train generator
-            discriminator.trainable=False
-            # gan.compile(loss = 'binary_crossentropy', optimizer = 'adam')
-            gan_x = np.random.random((batch_size,noise_vect_size))
-            gan_y = np.ones(batch_size) #creates an array of ones (expected output)
-            gloss = gan.train_on_batch(gan_x, gan_y)
-            # print ("accuracy:   ", accuracy)
-            # print ("discriminator values: ", discriminator.predict(discriminator_x))
-            # print ("discriminator values: ", discriminator_y)
-
-
-            if args.display:
-                arr = generator.predict(seed)
-                visualize(arr)
-
-        # if e % 20 == 0 and e != 0:
-        #     new_learning_rate -= 0.00001
-        #     print("NEW LEARNING RATE IS: ", new_learning_rate)
-        #     adam = Adam(lr=new_learning_rate, beta_1=0.5)
-        #     gan.compile(loss = 'binary_crossentropy', optimizer = 'adam')
-
-        #accuracy = discriminator.evaluate(generated_x, discriminator_y)
-        dLosses.append(dloss)
-        gLosses.append(gloss)
-        accuracies.append(accuracy)
-        print("Discriminator loss: ", dloss)
-        print("Generator loss: ", gloss)
-        #print("Accuracy: ", accuracy)
-
-        if e % args.save_every == 0:
-             # saveModels(e)
-             arr = generator.predict(seed)
-             if arr.shape == (1, minisong_size, note_range, channels):
-                 saveMidi(arr, e)
-             saveImage(arr, e)
-        if e % args.plot_every == 0:
-            arr = generator.predict(seed)
-            plotLoss(e)
-
-    plotLoss(e)
-
-    return
-
+    # print ("Saving loss graph as "+ output_dir + "/gan_loss_epoch_%d.png" % epoch)
 
 magnification = 10
 
+def printIntro():
+    print("input from: ", data_source, " output to: ", output_dir)
+    print("batch size: ", batch_size, " epochs: ", epochs)
+
+def generateImage(arr):
+    magnification = 10
+    img = arr
+    res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+    return res
+
+def visualize(arr):
+    res = generateImage(arr[0])
+    cv2.imshow('Generated Image', res) # on windows, i had to install xming
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        sys.exit(0)
 
 def saveImage(arr, e, low_loss=False):
   img = generateImage(arr[0])*255
@@ -447,24 +384,74 @@ def saveAlbum(e, shape = (3,3)):
 
 def saveSummary():
     file = open(output_dir + "/description.txt","w")
-    #file.write("generator:")
-    #file.write(generator.to_yaml())
-    #file.write("discriminator:")
-    #file.write(discriminator.to_yaml())
-    # file.write("input from: "+ data_source)
-    # file.write("batch size: "+ str(batch_size) + " epochs: " + str(epochs))
-    # file.close()
-    with open(output_dir + "/description.txt","w") as fh:
-        fh.write("generator:\n")
-        generator.summary(print_fn=lambda x: fh.write(x + '\n'))
-        fh.write("discriminator:\n")
-        discriminator.summary(print_fn=lambda x: fh.write(x + '\n'))
-        fh.write("\ninput from: "+ data_source)
-        fh.write("\nbatch size: "+ str(batch_size) + " epochs: " + str(epochs))
+    file.write("generator:")
+    file.write(generator.to_yaml())
+    file.write("discriminator:")
+    file.write(discriminator.to_yaml())
+    file.write("input from: "+ data_source)
+    file.write("batch size: "+ str(batch_size) + " epochs: " + str(epochs))
+    file.close()
 
-def printIntro():
-    print("input from: ", data_source, " output to: ", output_dir)
-    print("batch size: ", batch_size, " epochs: ", epochs)
+#method for creating batches of trainable data and training
+def trainGAN(train_data, epochs=20, batch_size=10000):
+    batchCount = len(train_data) / batch_size
+    #loop for number of epochs
+    # new_learning_rate = 0.0002
+
+    for e in range(1, epochs+1):
+        #loop for total number of batches
+        print ('Epoch:', e)
+        print ('Batches per epoch:', batchCount)
+        for b in range(len(train_data)//batch_size):
+            chosen_data_indexes = np.random.randint(1,train_data.shape[0],size = batch_size)
+            data_x = np.array([train_data[i] for i in chosen_data_indexes]) #get next batch of the right size from training data
+
+            #train discriminator
+            generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
+            discriminator_x = np.concatenate((data_x, generated_x)) #concatenate takes a tuple as input
+            discriminator_y = np.zeros(2*batch_size)
+            discriminator_y[:batch_size] = 0.9
+            discriminator.trainable = True
+            dloss = discriminator.train_on_batch(discriminator_x,discriminator_y)
+
+            #train generator
+            discriminator.trainable=False
+            # gan.compile(loss = 'binary_crossentropy', optimizer = 'adam')
+            gan_x = np.random.random((batch_size,noise_vect_size))
+            gan_y = np.ones(batch_size) #creates an array of ones (expected output)
+            gloss = gan.train_on_batch(gan_x, gan_y)
+
+
+            if args.display:
+                arr = generator.predict(seed)
+                visualize(arr)
+
+        # if e % 20 == 0 and e != 0:
+        #     new_learning_rate -= 0.00001
+        #     print("NEW LEARNING RATE IS: ", new_learning_rate)
+        #     adam = Adam(lr=new_learning_rate, beta_1=0.5)
+        #     gan.compile(loss = 'binary_crossentropy', optimizer = 'adam')
+
+
+        dLosses.append(dloss)
+        gLosses.append(gloss)
+        print("Discriminator loss: ", dloss)
+        print("Generator loss: ", gloss)
+
+        if e % args.save_every == 0:
+             # saveModels(e)
+             arr = generator.predict(seed)
+             # print ("arr.shape is:", arr.shape)
+             if arr.shape == (1, notes_per_minisong, note_range, channels):
+                 saveMidi(arr, e)
+             # saveImage(arr, e)
+        if e % args.plot_every == 0:
+            arr = generator.predict(seed)
+            plotLoss(e)
+
+    plotLoss(e)
+
+    return
 
 
 
