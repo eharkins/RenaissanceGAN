@@ -2,7 +2,7 @@ from keras.layers import Input
 from keras.models import Model, Sequential
 from keras.layers.core import Reshape, Dense, Dropout, Flatten
 from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import Convolution2D, UpSampling2D, Conv2D, MaxPooling2D
+from keras.layers.convolutional import Convolution2D, UpSampling2D, Conv2D, MaxPooling2D, Conv2DTranspose
 from keras.layers.normalization import BatchNormalization
 from keras.datasets import mnist
 from keras.optimizers import Adam
@@ -112,65 +112,163 @@ def loadPixels():
 
 # music stuff
 lowest_pitch = 30
-highest_pitch = 96
+highest_pitch = 127
 note_range = highest_pitch-lowest_pitch
-notes_per_minisong = 8
+beats_per_minisong = 8
 instrument_list = []
+MAX_VOL = 255
+
+def get_16th_note_tracks(tracks, longest_track):
+  final_tracks = np.zeros((len(tracks), longest_track, note_range))
+  for part in tracks:
+    global instrument_list
+    instrument_list.append(part.getInstrument())
+    sixteenth_notes = np.zeros((longest_track, note_range))
+    notes = part.flat.notesAndRests.stream()
+    for note in notes:
+      for which_beat in range(int(note.quarterLength*4)):
+        pitch_array = np.zeros(note_range)
+        if note.isChord:
+          for p in note.pitches:
+            pitch_array[p.midi] = note.volume.velocity/MAX_VOL
+        elif not note.isRest:
+            pitch_array[note.pitch.midi] = note.volume.velocity/MAX_VOL
+        np.append(sixteenth_notes, pitch_array)
+   
+    np.append(final_tracks, sixteenth_notes)
+  return final_tracks
 
 def loadMidi():
-    # Number of notes in each data example
-
-    #use pitches between 48 and 84 so note size is going to be 84-48+1 = 37
-
     mf = midi.MidiFile()
     mf.open(filename = data_source)
     mf.read()
     mf.close()
 
-    # tracks = mf.tracks
-    # print ("tracks is: ", len(tracks))
-    #     #convert to track
-    # for track in tracks:
-    #     print ("channels: ", track.getChannels())
-
     #read to stream
     s = midi.translate.midiFileToStream(mf)
     # a = instrument.partitionByInstrument(s)
-
     #number of parts/instruments
     tracks = s.parts
     channels = len(tracks)
-    data_shape = (notes_per_minisong, note_range, channels)
+    data_shape = (beats_per_minisong, note_range, channels)
 
     # num_songs = int(len(notes)/notes_per_minisong)
-    num_songs = 50
+    
     # print("number of minisongs:  ", num_songs)
-    minisongs = np.zeros(((num_songs,) + data_shape))
 
-    channel_number=0
-    for part in tracks:
-        global instrument_list
-        instrument_list.append(part.getInstrument())
-        notes = part.flat.notes
-        for minisong_number in range(num_songs):
-            for note_in_song in range(notes_per_minisong):
-                #based on minisong which you are on plus the note within that minisong -- get note
-                length = len(notes)
-                index_of_notes = minisong_number*notes_per_minisong + note_in_song
-                if index_of_notes < length:
-                    note = notes[index_of_notes]
-                    if not note.isChord:
-                        #minisong[song number, note in song, onehot index of pitch, channel] = the pitch normalized so lowest possible pitch is 0
-                        minisongs[minisong_number][note_in_song][note.pitch.midi-lowest_pitch][channel_number] = note.volume.velocity/255
-                    else:
-                        for p in note.pitches:
-                            # print(p.midi)
-                            minisongs[minisong_number][note_in_song][p.midi-lowest_pitch][channel_number] = note.volume.velocity/255
-        channel_number = channel_number+1
+    # number of possible songs in the longest track
+    num_songs = 0
+    for track in tracks:
+      length = (track.duration.quarterLength*4)//beats_per_minisong
+      if( length > num_songs):
+        num_songs = int(length)
+
+    # Get back to length of song in 16th notes
+    longest_track = num_songs*beats_per_minisong
+    # print(longest_track)
+
+
+    standardized_tracks = get_16th_note_tracks(tracks, longest_track)
+
+    minisongs = np.reshape(standardized_tracks, ((num_songs,) + data_shape)  )
+    # standardized_tracks = standardized_tracks.reshape(((num_songs,) + data_shape)  )
+
+    
+
+    # minisongs = np.zeros(((num_songs,) + data_shape))
+
+    # for std_track in standardized_tracks:
+    #   print("standardized track shape", len(std_track), len(std_track[0]))
+      # length = track.duration
+      # num_minisongs = length//
+
+    # channel_number=0
+    # for part in tracks:
+    #     global instrument_list
+    #     instrument_list.append(part.getInstrument())
+    #     # notes = get_16th_note_tracks(part.flat.notes, minisongs)
+    #     for minisong_number in range(len(notes)):
+    #         for note_in_song in range(notes_per_minisong):
+    #             #based on minisong which you are on plus the note within that minisong -- get note
+    #             length = len(notes)
+    #             index_of_notes = minisong_number*notes_per_minisong + note_in_song
+    #             if index_of_notes < length:
+    #                 note = notes[index_of_notes]
+    #                 if not note.isChord:
+    #                     #minisong[song number, note in song, onehot index of pitch, channel] = the pitch normalized so lowest possible pitch is 0
+    #                     minisongs[minisong_number][note_in_song][note.pitch.midi-lowest_pitch][channel_number] = note.volume.velocity/255
+    #                 else:
+    #                     for p in note.pitches:
+    #                         # print(p.midi)
+    #                         minisongs[minisong_number][note_in_song][p.midi-lowest_pitch][channel_number] = note.volume.velocity/255
+    #     channel_number = channel_number+1
             # print("pitch: ", p)
     #minisongs = minisongs.reshape((num_songs, notes_per_minisong*note_range))
-    print(instrument_list)
+    # print(instrument_list)
     return minisongs, data_shape
+
+def reMIDIfy(minisong, output):
+    # each note
+    s1 = stream.Stream()
+    t = tempo.MetronomeMark('fast', 240, note.Note(type='quarter'))
+    s1.append(t)
+    #print ("Mininsong shape is: ", minisong.shape)
+    minisong = minisong.reshape((beats_per_minisong, note_range, channels))
+    #minisong = minisong[0]
+    print("minisong", minisong)
+    for curr_channel in range(channels):
+        # inst = instrument.fromString(instrument_list[curr_channel])
+        new_part = stream.Part([instrument_list[curr_channel]])
+        for beat in range(beats_per_minisong):
+            notes = []
+            for curr_pitch in range(note_range):
+                #if this pitch is produced with at least 50% likelihood then count it
+                if minisong[beat][curr_pitch][curr_channel]>.1:
+                    # print("should be a note")
+                    #c.append((i+lowest_pitch, minisong[j][i]))
+                    # i indexes are the notes in a chord
+
+                    p = pitch.Pitch()
+                    p.midi = curr_pitch+lowest_pitch
+                    n = note.Note(pitch = p)
+                    n.pitch = p
+                    n.volume.velocity = minisong[beat][curr_pitch][curr_channel]*MAX_VOL
+                    n.quarterLength = 0.25
+                    notes.append(n)
+            if notes:
+                my_chord = chord.Chord(notes)
+            
+            else:
+                my_chord = note.Rest()
+                my_chord.quarterLength = 0.25
+
+            #print ("chord is: ", p.pitches)
+            new_part.append(my_chord)
+        s1.insert(curr_channel, new_part)
+        # print(s1.show('text'))
+
+    #add a rest at the end, hopefully this will make it longer
+    # r = note.Rest()
+    # r.quarterLength = 4
+    # s1.append(r)
+
+    #print ("stream is: ", s1.flat.notes)
+    #s1.append(p)
+
+    mf = midi.translate.streamToMidiFile(s1)
+    mf.open(output + ".mid", 'wb')
+    mf.write()
+    mf.close()
+
+def writeCutSongs(notesData):
+
+    directory = "output/midi_input"
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    # print ("notes data is: ", len(notesData))
+    for x in range(len(notesData)):
+        reMIDIfy(notesData[x], directory+"/input_song_"+str(x))
+        # cv2.imwrite(directory+"/input_score_%d.png" % x, notesData[x]*255)
 
 def loadData():
     if(data_source[-6:] == ".hdf5"):
@@ -217,8 +315,8 @@ generator.add(Dropout(.1))
 generator.add(Dense(data_size, activation = 'sigmoid'))
 generator.add(Dropout(.1))
 generator.add(Reshape((data_shape), input_shape=(data_size,)))
-generator.add(Conv2D(64, (3, 3), padding='same'))
-generator.add(Conv2D(channels, (3, 3), padding='same'))
+generator.add(Conv2DTranspose(64, (3, 24), padding='same'))
+generator.add(Conv2DTranspose(channels, (3, 24), padding='same'))
 #generator.add(Flatten())
 
 #compiling loss function and optimizer
@@ -227,10 +325,10 @@ generator.compile(loss = 'mse', optimizer = adam)
 #create discriminator
 discriminator = Sequential()
 #discriminator.add(Reshape((imageDim, imageDim, 3), input_shape=(imageDim**2*3,)))
-discriminator.add(Conv2D(64, (3, 3), padding='same', input_shape=(data_shape)))
+discriminator.add(Conv2D(32, (3, 24), padding='same', input_shape=(data_shape)))
 discriminator.add(MaxPooling2D(pool_size=(2, 2)))
-# discriminator.add(Conv2D(128, (3, 3), padding='same'))
-# discriminator.add(MaxPooling2D(pool_size=(2, 2)))
+discriminator.add(Conv2D(64, (3, 24), padding='same'))
+discriminator.add(MaxPooling2D(pool_size=(2, 2)))
 discriminator.add(Flatten())
 
 discriminator.add(Dense(32, activation = 'sigmoid', input_dim=data_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
@@ -250,63 +348,7 @@ gan.compile(loss = 'mse', optimizer = adam)
 dLosses = []
 gLosses = []
 
-def reMIDIfy(minisong, output):
-    # each note
-    s1 = stream.Stream()
-    t = tempo.MetronomeMark('fast', 240, note.Note(type='quarter'))
-    s1.append(t)
-    #print ("Mininsong shape is: ", minisong.shape)
-    minisong = minisong.reshape((notes_per_minisong, note_range, channels))
-    #minisong = minisong[0]
-    MAX_VOL = 255
-    # print(minisong)
-    for curr_channel in range(channels):
-        # inst = instrument.fromString(instrument_list[curr_channel])
-        new_part = stream.Part([instrument_list[curr_channel]])
-        for curr_note in range(len(minisong)):
-            notes = []
-            for curr_pitch in range(len(minisong[0])):
-                #if this pitch is produced with at least 50% likelihood then count it
-                if minisong[curr_note][curr_pitch][curr_channel]>.1:
-                    # print("should be a note")
-                    #c.append((i+lowest_pitch, minisong[j][i]))
-                    # i indexes are the notes in a chord
 
-                    p = pitch.Pitch()
-                    p.midi = curr_pitch+lowest_pitch
-                    n = note.Note(pitch = p)
-                    n.pitch = p
-                    n.volume.velocity = minisong[curr_note][curr_pitch][curr_channel]*MAX_VOL
-                    n.quarterLength = 1
-                    notes.append(n)
-            #print ("notes is: ", notes)
-            if notes:
-                #print ("adding ", str(len(notes)), " note chord")
-                my_chord = chord.Chord(notes)
-            #     n = chord.Chord(c[])
-            #     n.volume.velocity = c[1]
-            #     n.quarterLength = 1
-            else:
-                # print ("adding rest")
-                my_chord = note.Rest()
-                my_chord.quarterLength = 1
-
-            #print ("chord is: ", p.pitches)
-            new_part.append(my_chord)
-        s1.insert(curr_channel, new_part)
-
-    #add a rest at the end, hopefully this will make it longer
-    # r = note.Rest()
-    # r.quarterLength = 4
-    # s1.append(r)
-
-    #print ("stream is: ", s1.flat.notes)
-    #s1.append(p)
-
-    mf = midi.translate.streamToMidiFile(s1)
-    mf.open(output + ".mid", 'wb')
-    mf.write()
-    mf.close()
 
 def saveMidi(notesData, epoch):
     f = output_dir+"/song_"+str(epoch)
@@ -314,15 +356,7 @@ def saveMidi(notesData, epoch):
     # print (" saving song as ", f)
 
 
-def writeCutSongs(notesData):
 
-    directory = "output/midi_input"
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    # print ("notes data is: ", len(notesData))
-    for x in range(len(notesData)):
-        reMIDIfy(notesData[x], directory+"/input_song_"+str(x))
-        cv2.imwrite(directory+"/input_score_%d.png" % x, notesData[x]*255)
 
 #end of music
 
@@ -442,7 +476,7 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
              # saveModels(e)
              arr = generator.predict(seed)
              # print ("arr.shape is:", arr.shape)
-             if arr.shape == (1, notes_per_minisong, note_range, channels):
+             if arr.shape == (1, beats_per_minisong, note_range, channels):
                  saveMidi(arr, e)
              # saveImage(arr, e)
         if e % args.plot_every == 0:
@@ -459,5 +493,7 @@ if __name__ == '__main__':
     epochs = args.epochs
     batch_size = args.batch
     printIntro()
-    saveSummary();
-    trainGAN(x_train, epochs = epochs, batch_size=batch_size) #begin training
+    saveSummary()
+    print(x_train.shape)
+    writeCutSongs(x_train[:num_songs])
+    # trainGAN(x_train, epochs = epochs, batch_size=batch_size) #begin training
