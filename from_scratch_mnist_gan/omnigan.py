@@ -2,12 +2,12 @@ from keras.layers import Input
 from keras.models import Model, Sequential
 from keras.layers.core import Reshape, Dense, Dropout, Flatten
 from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import Convolution2D, UpSampling2D, Conv2D, MaxPooling2D
+from keras.layers.convolutional import Convolution2D, UpSampling2D, Conv2D, MaxPooling2D, Conv2DTranspose
 from keras.layers.normalization import BatchNormalization
 from keras.datasets import mnist
 from keras.optimizers import Adam
 from keras import backend as K
-from keras import initializers
+from keras import initializers, metrics
 import keras.utils
 
 import numpy as np
@@ -271,7 +271,7 @@ adam = Adam(lr=0.0001, beta_1=0.5)
 
 #seed= np.random.rand(noise_vect_size)
 seed = np.random.normal(0, 1, size=[1, noise_vect_size])
-
+#seed = np.random.rand(1, noise_vect_size)
 
 x_train, data_shape = loadData() #grabbing all training inputs
 
@@ -289,23 +289,32 @@ generator = Sequential()
 #stacking layers on model
 #generator.add(Conv2D(filters, kernel_size, strides=1,
 generator.add(Dense(64, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+#could random normal be responsible for lack of color variation?
 generator.add(Dropout(.1))
 generator.add(Dense(data_size, activation = 'sigmoid'))
 generator.add(Dropout(.1))
 generator.add(Reshape((data_shape), input_shape=(data_size,)))
-# generator.add(Conv2D(64, (3, 3), padding='same'))
+generator.add(Conv2DTranspose(64, (3, 3), strides = (1,1), padding='same', activation = 'sigmoid'))
+generator.add(Conv2DTranspose(64, (3, 3), strides = (1,1), padding='same', activation = 'sigmoid'))
+#generator.add(BatchNormalization(momentum=.99))
+generator.add(Conv2DTranspose(channels, (3, 3), strides = (1,1), padding='same', activation = 'sigmoid'))
 # generator.add(Conv2D(channels, (3, 3), padding='same'))
 #generator.add(Flatten())
 
 #compiling loss function and optimizer
-generator.compile(loss = 'mse', optimizer = adam)
+generator.compile(loss = 'binary_crossentropy', optimizer = adam)
 
 #create discriminator
 discriminator = Sequential()
 #discriminator.add(Reshape((imageDim, imageDim, 3), input_shape=(imageDim**2*3,)))
 discriminator.add(Conv2D(64, (3, 3), padding='same', input_shape=(data_shape), activation = 'sigmoid'))
+# discriminator.add(Dropout(.25))
+discriminator.add(MaxPooling2D(pool_size=(2, 2))) #max pooling is very important! without it, the GAN takes longer and produces only noise
+discriminator.add(Conv2D(64, (3, 3), padding='same', input_shape=(data_shape), activation = 'sigmoid'))
+# discriminator.add(Dropout(.25))
 discriminator.add(MaxPooling2D(pool_size=(2, 2)))
 discriminator.add(Conv2D(64, (3, 3), padding='same', input_shape=(data_shape), activation = 'sigmoid'))
+# discriminator.add(Dropout(.25))
 discriminator.add(MaxPooling2D(pool_size=(2, 2)))
 # discriminator.add(Conv2D(128, (3, 3), padding='same'))
 # discriminator.add(MaxPooling2D(pool_size=(2, 2)))
@@ -315,7 +324,7 @@ discriminator.add(Dense(32, activation = 'sigmoid', input_dim=data_size, kernel_
 discriminator.add(Dense(1, activation = 'sigmoid'))
 
 #compiling loss function and optimizer
-discriminator.compile(loss = 'mse', optimizer = adam)
+discriminator.compile(loss = 'binary_crossentropy', optimizer = adam, metrics = ['accuracy'])
 
 #creating the combined model
 discriminator.trainable = False
@@ -323,15 +332,17 @@ gan_input = Input(shape=(noise_vect_size,))
 discrimInput = generator(gan_input)
 gan_output = discriminator(discrimInput)
 gan = Model(inputs = gan_input, outputs = gan_output)
-gan.compile(loss = 'mse', optimizer = adam)
+gan.compile(loss = 'binary_crossentropy', optimizer = adam)
 
 dLosses = []
 gLosses = []
+accuracies=[]
 
 def plotLoss(epoch):
     plt.figure(figsize=(10, 8))
     plt.plot(dLosses, label='Discriminitive loss')
     plt.plot(gLosses, label='Generative loss')
+    plt.plot(accuracies, label='Accuracy')
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.legend()
@@ -362,9 +373,9 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
             generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
             discriminator_x = np.concatenate((data_x, generated_x)) #concatenate takes a tuple as input
             discriminator_y = np.zeros(2*batch_size)
-            discriminator_y[:batch_size] = 0.9
+            discriminator_y[:batch_size] = 1
             discriminator.trainable = True
-            dloss = discriminator.train_on_batch(discriminator_x,discriminator_y)
+            dloss, accuracy = discriminator.train_on_batch(discriminator_x,discriminator_y)
 
             #train generator
             discriminator.trainable=False
@@ -372,6 +383,9 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
             gan_x = np.random.random((batch_size,noise_vect_size))
             gan_y = np.ones(batch_size) #creates an array of ones (expected output)
             gloss = gan.train_on_batch(gan_x, gan_y)
+            # print ("accuracy:   ", accuracy)
+            # print ("discriminator values: ", discriminator.predict(discriminator_x))
+            # print ("discriminator values: ", discriminator_y)
 
 
             if args.display:
@@ -384,11 +398,13 @@ def trainGAN(train_data, epochs=20, batch_size=10000):
         #     adam = Adam(lr=new_learning_rate, beta_1=0.5)
         #     gan.compile(loss = 'binary_crossentropy', optimizer = 'adam')
 
-
+        #accuracy = discriminator.evaluate(generated_x, discriminator_y)
         dLosses.append(dloss)
         gLosses.append(gloss)
+        accuracies.append(accuracy)
         print("Discriminator loss: ", dloss)
         print("Generator loss: ", gloss)
+        #print("Accuracy: ", accuracy)
 
         if e % args.save_every == 0:
              # saveModels(e)
@@ -434,13 +450,20 @@ def saveAlbum(e, shape = (3,3)):
 
 def saveSummary():
     file = open(output_dir + "/description.txt","w")
-    file.write("generator:")
-    file.write(generator.to_yaml())
-    file.write("discriminator:")
-    file.write(discriminator.to_yaml())
-    file.write("input from: "+ data_source)
-    file.write("batch size: "+ str(batch_size) + " epochs: " + str(epochs))
-    file.close()
+    #file.write("generator:")
+    #file.write(generator.to_yaml())
+    #file.write("discriminator:")
+    #file.write(discriminator.to_yaml())
+    # file.write("input from: "+ data_source)
+    # file.write("batch size: "+ str(batch_size) + " epochs: " + str(epochs))
+    # file.close()
+    with open(output_dir + "/description.txt","w") as fh:
+        fh.write("generator:\n")
+        generator.summary(print_fn=lambda x: fh.write(x + '\n'))
+        fh.write("discriminator:\n")
+        discriminator.summary(print_fn=lambda x: fh.write(x + '\n'))
+        fh.write("\ninput from: "+ data_source)
+        fh.write("\nbatch size: "+ str(batch_size) + " epochs: " + str(epochs))
 
 def printIntro():
     print("input from: ", data_source, " output to: ", output_dir)
