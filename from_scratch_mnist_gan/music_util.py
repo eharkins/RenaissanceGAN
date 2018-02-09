@@ -20,32 +20,51 @@ song_tempo = 100
 
 
 
-def get_standardized_note_tracks(tracks, longest_track):
-  final_tracks = np.zeros((longest_track, note_range, len(tracks)))
-  t = 0
-  # for each track
-  for part in tracks:
-    global instrument_list
+def get_standardized_note_tracks(tracks, num_songs, beats_per_minisong):
+    #first dimension is minisong number * notes per minisong
+  #final_tracks = np.zeros((longest_track, note_range, len(tracks)))
+  final_tracks = np.zeros((num_songs, beats_per_minisong, note_range, len(tracks)))
+  print ("tracks size is: ", len(tracks))
+  print ("final tracks shape is: ", final_tracks.shape)
+  global instrument_list
+  for track_n in range(len(tracks)):
+    track = tracks[track_n]
     # add our instrument to the array to keep track of instruments on each channel
-    instrument_list.append(part.getInstrument())
-    notes = part.flat.notesAndRests.stream()
-    n = 0
-    # for all the notes in the track including rests
-    for note in notes:
-      # for the beat in the measure as defined by the standard note length
-      for which_beat in range(int(note.quarterLength/lengthPerBeat)):
-        # handle both chords and notes - rests are left as zeros since we initialize with np.zeros
-        if note.isChord:
-          for p in note.pitches:
-            # put the pitch into the corresponding index in the array
-            final_tracks[n][p.midi-lowest_pitch][t] = note.volume.velocity/MAX_VOL
-        elif not note.isRest:
-            # put the pitch into the corresponding index in the array
-            final_tracks[n][note.pitch.midi-lowest_pitch][t] = note.volume.velocity/MAX_VOL
-        # next note
-        n +=1
+    instrument_list.append(track.getInstrument())
+    notes = track.flat.notesAndRests.stream()
+    measure = beat = 0 #measure is minisong
+    note_n = 0 # index of current note
+    beat_in_note = 0 #index of beat within note
+    print ("notes length is: ", len(notes))
+    # for each note in the entire track including rests
+    while (measure < num_songs and note_n < len(notes)):
+        note = notes[note_n]
+
+        #add note to array only if start of note
+        if beat_in_note == 0:
+            if note.isChord:
+              for p in note.pitches:
+                # put the pitch into the corresponding index in the array
+                final_tracks[measure, beat, p.midi-lowest_pitch, track_n] = note.volume.velocity/MAX_VOL
+            elif not note.isRest:
+                # put the pitch into the corresponding index in the array
+                final_tracks[measure, beat, note.pitch.midi-lowest_pitch, track_n] = note.volume.velocity/MAX_VOL
+
+        beat += 1
+        beat_in_note +=1
+
+        # move to next note
+        if beat_in_note == int(note.quarterLength/lengthPerBeat):
+            note_n += 1
+            beat_in_note = 0
+
+        # move to next measure
+        if beat == beats_per_minisong:
+            beat = 0
+            measure +=1
+        print ("measure: ", measure, " beat: ", beat, " note: ", note_n)
+        #cuts songs short to prevent crashing
     # next track
-    t += 1
   return final_tracks
 
 def loadMidi(data_source):
@@ -75,13 +94,14 @@ def loadMidi(data_source):
         num_songs = int(length)
 
     # Get back to length of song in 16th notes
-    longest_track = num_songs*beats_per_minisong
+    #longest_track = num_songs*beats_per_minisong
 
     # get standarized tracks
-    standardized_tracks = get_standardized_note_tracks(tracks, longest_track)
+    #standardized_tracks = get_standardized_note_tracks(tracks, longest_track)
+    minisongs = get_standardized_note_tracks(tracks, num_songs, beats_per_minisong)
 
     # reshape to break them into "measures" as defined by beats_per_minisong
-    minisongs = np.reshape(standardized_tracks, ((num_songs,) + data_shape)  )
+    #minisongs = np.reshape(standardized_tracks, ((num_songs,) + data_shape)  )
 
     return minisongs, data_shape
 
