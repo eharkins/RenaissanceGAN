@@ -16,7 +16,6 @@ import argparse
 from music21 import midi, stream, pitch, note, tempo, chord
 os.environ["KERAS_BACKEND"] = "tensorflow"
 
-from gan_util import *
 from gan_model import *
 from music_util import *
 
