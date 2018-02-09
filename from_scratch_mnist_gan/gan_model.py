@@ -37,11 +37,11 @@ def makeDiscriminator(data_shape):
     #create discriminator
     data_size = data_shape[0]*data_shape[1]*data_shape[2]
     discriminator = Sequential()
-    discriminator.add(Conv2D(64, (3, 3), padding='same', input_shape=(data_shape), activation = 'sigmoid'))
+    discriminator.add(Conv2D(64, (3, 3), padding='none', input_shape=(data_shape), activation = 'sigmoid'))
     discriminator.add(MaxPooling2D(pool_size=(2, 2))) #max pooling is very important! without it, the GAN takes longer and produces only noise
-    discriminator.add(Conv2D(64, (3, 3), padding='same', input_shape=(data_shape), activation = 'sigmoid'))
+    discriminator.add(Conv2D(64, (3, 3), padding='none', input_shape=(data_shape), activation = 'sigmoid'))
     discriminator.add(MaxPooling2D(pool_size=(2, 2)))
-    discriminator.add(Conv2D(64, (3, 3), padding='same', input_shape=(data_shape), activation = 'sigmoid'))
+    discriminator.add(Conv2D(64, (3, 3), padding='none', input_shape=(data_shape), activation = 'sigmoid'))
     discriminator.add(MaxPooling2D(pool_size=(2, 2)))
     discriminator.add(Flatten())
     discriminator.add(Dense(32, activation = 'sigmoid', input_dim=data_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
