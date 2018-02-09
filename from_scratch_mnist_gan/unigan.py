@@ -35,7 +35,7 @@ data_source = "data/" + args.input
 output_dir = "output/" + args.output
 epochs = args.epochs
 batch_size = args.batch
-
+doing_music = 0
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -49,7 +49,7 @@ def parse_args():
     #                     help='data to parse, ****_sprites should be input, ***_output should be output)')
     parser.add_argument('--input', type=str, default='bach.mid',
                         help='directory of examples (within colors)')
-    parser.add_argument('--output', type=str, default='omni_generated',
+    parser.add_argument('--output', type=str, default='uni_generated',
                         help='directory of output (within colors)')
     parser.add_argument('--plot-every', type=int, default=25,
                             help='how many epochs between saving the graph')
@@ -125,6 +125,9 @@ def loadMNIST(data_source, dataType, imageDim = 28):
 
 
 def generateImage(arr, magnification = 10):
+    #take first three tracks for music
+    if (arr.shape[2] > 3):
+        arr = arr[:,:,:3]
     img = arr
     res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
     return res
@@ -190,15 +193,18 @@ def loadData():
         return loadMNIST(data_source, "train")
     if data_source[-4:] == ".mid":
         print (" MUSIC! ")
-        song = loadMidi(data_source)
-        writeCutSongs(song[0])
-        return song
+        song, shape = loadMidi(data_source)
+        writeCutSongs(song)
+        global doing_music
+        doing_music = 1
+        return song, shape
     else:
         print (" COLOR IMAGES! ")
         return loadPixels(data_source)
 
 x_train, data_shape = loadData() #grabbing all training inputs
 
+minisong_size = data_shape[1]
 channels = data_shape[2]
 print ("channels is: ", channels)
 data_size = data_shape[0]*data_shape[1]*data_shape[2]
@@ -265,8 +271,8 @@ def trainGAN(train_data, epochs, batch_size):
         if e % args.save_every == 0:
              # saveModels(e)
              arr = generator.predict(seed)
-             if arr.shape == (1, minisong_size, note_range, channels):
-                 saveMidi(arr, e)
+             if doing_music:
+                 saveMidi(arr, e, output_dir)
              saveImage(arr, e)
         if e % args.plot_every == 0:
             arr = generator.predict(seed)
