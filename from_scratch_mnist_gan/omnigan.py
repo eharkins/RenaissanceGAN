@@ -62,24 +62,32 @@ output_dir = "output/" + args.output
 #change this directory to where hdf5 file is stored
 DATASETS_DIR = os.path.dirname(os.path.realpath(__file__))
 
-def loadMNIST(dataType):
-    if(data_source == "data/mnist.hdf5"):
-      imageDim = 28
+def loadMNIST(data_source, dataType, imageDim = 28):
     data_shape = (imageDim, imageDim, 1)
     #parameter determines whether data is training or testing
     size = 10000
-    f = h5py.File(DATASETS_DIR + "/data/mnist.hdf5", 'r')
+    f = h5py.File(DATASETS_DIR +  "/" + data_source, 'r')
+    #f = h5py.File(DATASETS_DIR + "/data/mnist.hdf5", 'r')
     X = f['x_'+dataType][:size]
-    maxes = X.max(axis=0)
+    full_shape = (size,) + data_shape
+    X = X.reshape(full_shape)
+    maxes = X.max(axis=(1, 2)) #normalizing based on maximum pixel value
+    print ("x: ", X.shape)
+    print ("maxesx: ", maxes.shape)
     for i in range(len(maxes)):
         if maxes[i] == 0:
             maxes[i] = 0.1
-    X *= 1/maxes
+            X[i]*=1/maxes[i]
+    #X *= 1/maxes
+    if args.display:
+        for i in range(50):
+            visualize(X[i])
         # print X.shape
 
     print ("MNIST Dataset LOADED")
 
     return X, data_shape
+
 
 
 def generateImage(arr):
@@ -246,7 +254,7 @@ def writeCutSongs(notesData):
 #end of music
 
 def loadData():
-    if(data_source[-6:] == ".hdf5"):
+    if(data_source[-5:] == ".hdf5"):
         print (" MNIST! ")
         return loadMNIST("train")
     if data_source[-4:] == ".mid":
@@ -320,7 +328,7 @@ discriminator.add(MaxPooling2D(pool_size=(2, 2)))
 # discriminator.add(MaxPooling2D(pool_size=(2, 2)))
 discriminator.add(Flatten())
 
-discriminator.add(Dense(32, activation = 'sigmoid', input_dim=data_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+discriminator.add(Dense(32, activation = 'sigmoid', input_dim=data_size, #kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 discriminator.add(Dense(1, activation = 'sigmoid'))
 
 #compiling loss function and optimizer
