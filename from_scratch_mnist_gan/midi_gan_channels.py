@@ -214,7 +214,7 @@ def reMIDIfy(minisong, output):
                     notes.append(n)
             if notes:
                 my_chord = chord.Chord(notes)
-            
+
             else:
                 my_chord = note.Rest()
                 my_chord.quarterLength = lengthPerBeat
@@ -252,7 +252,6 @@ def loadData():
 
 x_train, data_shape, num_songs = loadData() #grabbing all training inputs
 channels = data_shape[2]
-# print ("channels is: ", channels)
 data_size = data_shape[0]*data_shape[1]*data_shape[2]
 
 
@@ -317,7 +316,7 @@ gLosses = []
 
 
 
-def saveMidi(notesData, epoch):
+def saveMidi(notesData, epoch, output_dir ):
     f = output_dir+"/song_"+str(epoch)
     reMIDIfy(notesData[0], f)
     # print (" saving song as ", f)
