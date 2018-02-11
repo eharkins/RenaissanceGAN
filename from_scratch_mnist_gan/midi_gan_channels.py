@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 import sys, os
 import cv2
 import argparse
+import math
 from music21 import midi, stream, pitch, note, tempo, chord, instrument
 os.environ["KERAS_BACKEND"] = "tensorflow"
 np.set_printoptions(threshold=np.nan)
@@ -115,7 +116,7 @@ def loadPixels():
 lowest_pitch = 30
 highest_pitch = 127
 note_range = highest_pitch-lowest_pitch
-beats_per_minisong = 50
+beats_per_minisong = 16
 instrument_list = []
 MAX_VOL = 255
 # LENGTH PER BEAT IS THE STANDARDIZED LENGTH OF NOTES/RESTS
@@ -129,21 +130,27 @@ def get_standardized_note_tracks(tracks, longest_track):
   t = 0
   # for each track
   for part in tracks:
-    global instrument_list
-    # add our instrument to the array to keep track of instruments on each channel
-    instrument_list.append(part.getInstrument())
     notes = part.flat.notesAndRests.stream()
     n = 0
+    inst = part.getInstrument().instrumentName
+    if(inst == None):
+        continue
+        print("NO INSTRUMENT")
     # for all the notes in the track including rests
     for note in notes:
       # for the beat in the measure as defined by the standard note length
+      # print("note length", note.quarterLength)
+      # print("number of beats in this note", int(note.quarterLength/lengthPerBeat))
       for which_beat in range(int(note.quarterLength/lengthPerBeat)):
         # handle both chords and notes - rests are left as zeros since we initialize with np.zeros
         if note.isChord:
-          for p in note.pitches:
-            # put the pitch into the corresponding index in the array
-            final_tracks[n][p.midi-lowest_pitch][t] = note.volume.velocity/MAX_VOL
+            # print(n)
+            for p in note.pitches:
+                # put the pitch into the corresponding index in the array
+                final_tracks[n][p.midi-lowest_pitch][t] = note.volume.velocity/MAX_VOL
         elif not note.isRest:
+            # print(n)
+
             # put the pitch into the corresponding index in the array
             final_tracks[n][note.pitch.midi-lowest_pitch][t] = note.volume.velocity/MAX_VOL
         # next note
@@ -174,15 +181,30 @@ def loadMidi():
     # number of possible songs in the longest track
     num_songs = 0
     for track in tracks:
-      length = (track.duration.quarterLength/lengthPerBeat)//beats_per_minisong
-      if( length > num_songs):
-        num_songs = int(length)
+        inst = track.getInstrument()
+        inst_name = inst.instrumentName
+        # print("notes: ")
+        # notes.show('text')
+        if(inst_name == None):
+            inst = instrument.fromString('Piano')
+        global instrument_list
+        # add our instrument to the array to keep track of instruments on each channel
+        instrument_list.append(inst)
+        # print("track duration quarterlength ", track.duration.quarterLength)
+        total_beats = (math.ceil(track.duration.quarterLength)/lengthPerBeat)
+        # print("total_beats :", total_beats)
+        length = total_beats//beats_per_minisong
+        # print("length :", length)
+        if( length > num_songs):
+            longest_track = track
+            num_songs = int(length)
+            # print("num_songs : ", num_songs)
 
     # Get back to length of song in 16th notes
-    longest_track = num_songs*beats_per_minisong
+    longest_track_length = num_songs*beats_per_minisong
 
     # get standarized tracks
-    standardized_tracks = get_standardized_note_tracks(tracks, longest_track)
+    standardized_tracks = get_standardized_note_tracks(tracks, longest_track_length)
 
     # reshape to break them into "measures" as defined by beats_per_minisong
     minisongs = np.reshape(standardized_tracks, ((num_songs,) + data_shape)  )
@@ -214,7 +236,7 @@ def reMIDIfy(minisong, output):
                     notes.append(n)
             if notes:
                 my_chord = chord.Chord(notes)
-            
+
             else:
                 my_chord = note.Rest()
                 my_chord.quarterLength = lengthPerBeat
@@ -252,7 +274,6 @@ def loadData():
 
 x_train, data_shape, num_songs = loadData() #grabbing all training inputs
 channels = data_shape[2]
-# print ("channels is: ", channels)
 data_size = data_shape[0]*data_shape[1]*data_shape[2]
 
 
@@ -262,7 +283,7 @@ np.random.seed(1000)
 
 
 # Optimizer
-adam = Adam(lr=0.0001, beta_1=0.5)
+adam = Adam(lr=0.00001, beta_1=0.5)
 
 #seed= np.random.rand(noise_vect_size)
 seed = np.random.normal(0, 1, size=[1, noise_vect_size])
@@ -276,26 +297,24 @@ generator = Sequential()
 
 
 #stacking layers on model
-#generator.add(Conv2D(filters, kernel_size, strides=1,
-generator.add(Dense(64, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
-generator.add(Dropout(.1))
-generator.add(Dense(data_size, activation = 'sigmoid'))
-generator.add(Dropout(.1))
+
+generator.add(Dense(data_size, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
+# generator.add(Dropout(.1))
 generator.add(Reshape((data_shape), input_shape=(data_size,)))
 generator.add(Conv2DTranspose(64, (3, 24), padding='same'))
 generator.add(Conv2DTranspose(channels, (3, 24), padding='same'))
-#generator.add(Flatten())
 
 #compiling loss function and optimizer
 generator.compile(loss = 'mse', optimizer = adam)
 
 #create discriminator
 discriminator = Sequential()
-#discriminator.add(Reshape((imageDim, imageDim, 3), input_shape=(imageDim**2*3,)))
 discriminator.add(Conv2D(32, (3, 24), padding='same', input_shape=(data_shape)))
-discriminator.add(MaxPooling2D(pool_size=(2, 2)))
+# discriminator.add(MaxPooling2D(pool_size=(2, 2)))
+discriminator.add(Dropout(.25))
 discriminator.add(Conv2D(64, (3, 24), padding='same'))
-discriminator.add(MaxPooling2D(pool_size=(2, 2)))
+# discriminator.add(MaxPooling2D(pool_size=(2, 2)))
+discriminator.add(Dropout(.25))
 discriminator.add(Flatten())
 
 discriminator.add(Dense(32, activation = 'sigmoid', input_dim=data_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
@@ -317,7 +336,7 @@ gLosses = []
 
 
 
-def saveMidi(notesData, epoch):
+def saveMidi(notesData, epoch, output_dir ):
     f = output_dir+"/song_"+str(epoch)
     reMIDIfy(notesData[0], f)
     # print (" saving song as ", f)
