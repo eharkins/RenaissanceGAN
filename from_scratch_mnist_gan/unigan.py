@@ -35,7 +35,7 @@ def parse_args():
     #                     help='data to parse, ****_sprites should be input, ***_output should be output)')
     parser.add_argument('--input', type=str, default='bach.mid',
                         help='directory of examples (within colors)')
-    parser.add_argument('--output', type=str, default='omni_generated',
+    parser.add_argument('--output', type=str, default='uni_generated',
                         help='directory of output (within colors)')
     parser.add_argument('--plot-every', type=int, default=25,
                             help='how many epochs between saving the graph')
@@ -60,34 +60,6 @@ output_dir = "output/" + args.output
 epochs = args.epochs
 batch_size = args.batch
 doing_music = 0
-
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=12000,
-                        help='the number of training steps to take')
-    parser.add_argument('--batch', type=int, default=20,
-                        help='the batch size')
-    # parser.add_argument('--display', type=int, default=0,
-    #                     help='display live with opencv')
-    # parser.add_argument ('--data', type=str, default='flower',
-    #                     help='data to parse, ****_sprites should be input, ***_output should be output)')
-    parser.add_argument('--input', type=str, default='bach.mid',
-                        help='directory of examples (within colors)')
-    parser.add_argument('--output', type=str, default='uni_generated',
-                        help='directory of output (within colors)')
-    parser.add_argument('--plot-every', type=int, default=25,
-                            help='how many epochs between saving the graph')
-    parser.add_argument('--save-every', type=int, default=5,
-                                help='how many epochs between printing image')
-    parser.add_argument('--channels', type=int, default=3,
-                        help='color:3 bw: 1')
-    parser.add_argument('--display', dest='display', action='store_true')
-    parser.add_argument('--no-display', dest='display', action='store_false')
-    parser.set_defaults(display=True)
-    # parser.add_argument('--display', type =bool, default=False,
-    #                     help='display live with opencv')
-    return parser.parse_args()
-
 
 def getImageDim(data_source):
     try:
@@ -218,7 +190,19 @@ def loadData():
     if data_source[-4:] == ".mid":
         print (" MUSIC! ")
         song, shape = loadMidi(data_source)
-        writeCutSongs(song)
+        debug_dir = output_dir + "/midi_input"
+        writeCutSongs(song, debug_dir)
+        if not os.path.exists(debug_dir):
+            os.makedirs(debug_dir)
+        for i in range(len(song)):
+            minisong = song[i]
+            if args.display:
+                res = generateImage((1-minisong))
+                #print ("writing image to: "+ debug_dir + "/input_score_%d.png" % i)
+                cv2.imwrite(output_dir+"/midi_input/input_score_%d.png" % i, res*255)
+                cv2.imshow('Dataset Image', res)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    sys.exit(0)
         global doing_music
         doing_music = 1
         return song, shape
@@ -283,7 +267,10 @@ def trainGAN(train_data, epochs, batch_size):
 
             if args.display:
                 arr = generator.predict(seed)[0]
-                visualize(arr)
+                if doing_music:
+                    visualize(1-arr)
+                else:
+                    visualize(arr)
 
         dLosses.append(dloss)
         gLosses.append(gloss)
@@ -297,7 +284,9 @@ def trainGAN(train_data, epochs, batch_size):
              arr = generator.predict(seed)
              if doing_music:
                  saveMidi(arr, e, output_dir)
-             saveImage(arr, e)
+                 saveImage(1-arr, e)
+             else:
+                 saveImage(arr, e)
         if e % args.plot_every == 0:
             arr = generator.predict(seed)
             plotLoss(e)
