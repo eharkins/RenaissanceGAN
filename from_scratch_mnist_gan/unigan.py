@@ -205,7 +205,7 @@ def loadData():
                     sys.exit(0)
         global doing_music
         doing_music = 1
-        return songs, shape
+        return song, shape
     else:
         print (" COLOR IMAGES! ")
         return loadPixels(data_source)
