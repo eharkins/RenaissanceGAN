@@ -219,6 +219,14 @@ def loadData():
         print (" MUSIC! ")
         song, shape = loadMidi(data_source)
         writeCutSongs(song)
+        for i in range(len(song)):
+            minisong = song[i]
+            if args.display:
+                res = generateImage(beats_per_minisong)
+                cv2.imwrite(output_dir+"/midi_input/input_score_%d.png" % x, res)
+                cv2.imshow('Generated Image', res) # on windows, i had to install xming
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    sys.exit(0)
         global doing_music
         doing_music = 1
         return song, shape
