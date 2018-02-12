@@ -62,7 +62,7 @@ def get_standardized_note_tracks(tracks, num_songs, beats_per_minisong):
         if beat == beats_per_minisong:
             beat = 0
             measure +=1
-        print ("measure: ", measure, " beat: ", beat, " note: ", note_n)
+        #print ("measure: ", measure, " beat: ", beat, " note: ", note_n)
         #cuts songs short to prevent crashing
     # next track
   return final_tracks
@@ -160,4 +160,5 @@ def writeCutSongs(notesData, output = "output"):
     notesData = notesData[:,:,:,:3]
     for x in range(len(notesData)):
         reMIDIfy(notesData[x], directory+"/input_song_"+str(x))
+        # visualize(notesData[x])
         cv2.imwrite(directory+"/input_score_%d.png" % x, notesData[x]*255)
