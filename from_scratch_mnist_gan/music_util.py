@@ -9,7 +9,9 @@ note_range = highest_pitch-lowest_pitch
 lowest_pitch = 30
 highest_pitch = 127
 note_range = highest_pitch-lowest_pitch
-beats_per_minisong = 16
+beats_per_measure = 16
+measures_per_minisong = 2
+beats_per_minisong = beats_per_measure * measures_per_minisong
 instrument_list = []
 MAX_VOL = 255
 # LENGTH PER BEAT IS THE STANDARDIZED LENGTH OF NOTES/RESTS
@@ -18,6 +20,15 @@ MAX_VOL = 255
 lengthPerBeat = 0.25
 song_tempo = 100
 
+# put the pitches into the corresponding index in the array
+def addNote(notes, final_tracks, measure_in_song, minisong, track_n):
+    for note in notes:
+        position = int(note.offset/lengthPerBeat) + measure_in_song * beats_per_measure
+        if note.isChord:
+          for p in note.pitches:
+            final_tracks[minisong, position, p.midi-lowest_pitch, track_n] = note.volume.velocity/MAX_VOL
+        elif not note.isRest:
+            final_tracks[minisong, position, note.pitch.midi-lowest_pitch, track_n] = note.volume.velocity/MAX_VOL
 
 
 def get_standardized_note_tracks(tracks, num_songs, beats_per_minisong):
@@ -40,28 +51,18 @@ def get_standardized_note_tracks(tracks, num_songs, beats_per_minisong):
     if(inst_name == None):
         continue
         print("NO INSTRUMENT")
-    #notes = track.flat.notesAndRests.stream()
-    #measure = beat = 0 #measure is minisong for now
-    note_n = 0 # index of current note
-    beat_in_note = 0 #index of beat within note
-    measures = track.flat.notesAndRests.stream().measures(0, None)
+    measures = track.flat.notes.stream().measures(0, None)
     measures = measures.getElementsByClass("Measure")
-    #measures = track.flat.noesAndRests.makeMeasures()
-    print ("measure [0] is: ", measures[0])
     print ("number of measures: ", len(measures))
-    # for each note in the entire track including rests
     for measure in range(len(measures)):
         m = measures[measure]
-        #notes = m.notes
-        for note in m.notes:
-            position = int(note.offset/lengthPerBeat)
-            if note.isChord:
-              for p in note.pitches:
-                # put the pitch into the corresponding index in the array
-                final_tracks[measure, position, p.midi-lowest_pitch, track_n] = note.volume.velocity/MAX_VOL
-            elif not note.isRest:
-                # put the pitch into the corresponding index in the array
-                final_tracks[measure, position, note.pitch.midi-lowest_pitch, track_n] = note.volume.velocity/MAX_VOL
+        minisong = int(measure/measures_per_minisong)
+        measure_in_song = measure%measures_per_minisong
+        if m.voices:
+            for v in m.voices:
+                addNote(v.notes, final_tracks, measure_in_song, minisong, track_n)
+        else:
+            addNote(m.notes, final_tracks, measure_in_song, minisong, track_n)
 
   return final_tracks
 
