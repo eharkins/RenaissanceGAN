@@ -301,18 +301,18 @@ generator = Sequential()
 generator.add(Dense(data_size, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
 # generator.add(Dropout(.1))
 generator.add(Reshape((data_shape), input_shape=(data_size,)))
-generator.add(Conv2DTranspose(64, (3, 24), padding='same'))
-generator.add(Conv2DTranspose(channels, (3, 24), padding='same'))
+generator.add(Conv2DTranspose(64, (2, 24), padding='same'))
+generator.add(Conv2DTranspose(channels, (2, 24), padding='same'))
 
 #compiling loss function and optimizer
 generator.compile(loss = 'mse', optimizer = adam)
 
 #create discriminator
 discriminator = Sequential()
-discriminator.add(Conv2D(32, (3, 24), padding='same', input_shape=(data_shape)))
+discriminator.add(Conv2D(32, (2, 24), padding='same', input_shape=(data_shape)))
 # discriminator.add(MaxPooling2D(pool_size=(2, 2)))
 discriminator.add(Dropout(.25))
-discriminator.add(Conv2D(64, (3, 24), padding='same'))
+discriminator.add(Conv2D(64, (2, 24), padding='same'))
 # discriminator.add(MaxPooling2D(pool_size=(2, 2)))
 discriminator.add(Dropout(.25))
 discriminator.add(Flatten())

@@ -205,7 +205,7 @@ def loadData():
                     sys.exit(0)
         global doing_music
         doing_music = 1
-        return song, shape
+        return songs, shape
     else:
         print (" COLOR IMAGES! ")
         return loadPixels(data_source)
@@ -249,7 +249,9 @@ def trainGAN(train_data, epochs, batch_size):
         for b in range(len(train_data)//batch_size):
             chosen_data_indexes = np.random.randint(1,train_data.shape[0],size = batch_size)
             data_x = np.array([train_data[i] for i in chosen_data_indexes]) #get next batch of the right size from training data
-            #data_x = np.reshape(data_x, ((batch_size) +data_shape))
+            # data_x = np.reshape(data_x, ((batch_size,) +data_shape))
+            # Below for non conv input to discriminator
+            # data_x = np.reshape(data_x, (batch_size, data_size))
 
             #train discriminator
             generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
