@@ -26,11 +26,11 @@ def makeGenerator(data_shape, noise_vect_size):
     #generator.add(Dense(data_size, activation = 'sigmoid'))
     #generator.add(Dense(data_size, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
     #generator.add(Dropout(.1))
-    generator.add(Dense(data_size, activation = 'sigmoid'))
+    #generator.add(Dense(data_size, activation = 'sigmoid'))
     #generator.add(Dropout(.1))
     generator.add(Reshape((data_shape), input_shape=(data_size,)))
-    generator.add(Conv2DTranspose(64, (3, 3), strides = (1,1), padding='same', activation = 'sigmoid'))
-    generator.add(Conv2DTranspose(channels, (3, 3), strides = (1,1), padding='same', activation = 'sigmoid'))
+    generator.add(Conv2DTranspose(64, (3, 3), strides = (1,1), padding='same', activation = 'relu'))
+    generator.add(Conv2DTranspose(channels, (3, 3), strides = (1,1), padding='same', activation = 'relu'))
     generator.compile(loss = 'binary_crossentropy', optimizer = adam)
     return generator
 
