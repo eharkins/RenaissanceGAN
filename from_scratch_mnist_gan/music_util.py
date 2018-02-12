@@ -86,22 +86,15 @@ def loadMidi(data_source):
     data_shape = (beats_per_minisong, note_range, channels)
 
     # number of possible songs in the longest track
-    num_songs = 0
+    longest_length = 0
     for track in tracks:
-        # print("track duration quarterlength ", track.duration.quarterLength)
-        total_beats = (math.ceil(track.duration.quarterLength)/lengthPerBeat)
-        # print("total_beats :", total_beats)
-        length = total_beats//beats_per_minisong
+        print("track length: ", track.duration.quarterLength)
         # print("length :", length)
-        if( length > num_songs):
-            longest_track = track
-            num_songs = int(length)
+        longest_length = max(longest_length, track.duration.quarterLength)
+    print("longest length is: ", longest_length)
+    mybeats = longest_length/lengthPerBeat
+    num_songs = math.ceil(mybeats/beats_per_minisong)
 
-    # Get back to length of song in 16th notes
-    #longest_track = num_songs*beats_per_minisong
-
-    # get standarized tracks
-    #standardized_tracks = get_standardized_note_tracks(tracks, longest_track)
     minisongs = get_standardized_note_tracks(tracks, num_songs, beats_per_minisong)
 
     # reshape to break them into "measures" as defined by beats_per_minisong
