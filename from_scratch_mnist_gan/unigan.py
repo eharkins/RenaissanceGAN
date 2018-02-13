@@ -61,6 +61,34 @@ epochs = args.epochs
 batch_size = args.batch
 doing_music = 0
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--epochs', type=int, default=12000,
+                        help='the number of training steps to take')
+    parser.add_argument('--batch', type=int, default=20,
+                        help='the batch size')
+    # parser.add_argument('--display', type=int, default=0,
+    #                     help='display live with opencv')
+    # parser.add_argument ('--data', type=str, default='flower',
+    #                     help='data to parse, ****_sprites should be input, ***_output should be output)')
+    parser.add_argument('--input', type=str, default='bach.mid',
+                        help='directory of examples (within colors)')
+    parser.add_argument('--output', type=str, default='uni_generated',
+                        help='directory of output (within colors)')
+    parser.add_argument('--plot-every', type=int, default=25,
+                            help='how many epochs between saving the graph')
+    parser.add_argument('--save-every', type=int, default=5,
+                                help='how many epochs between printing image')
+    parser.add_argument('--channels', type=int, default=3,
+                        help='color:3 bw: 1')
+    parser.add_argument('--display', dest='display', action='store_true')
+    parser.add_argument('--no-display', dest='display', action='store_false')
+    parser.set_defaults(display=True)
+    # parser.add_argument('--display', type =bool, default=False,
+    #                     help='display live with opencv')
+    return parser.parse_args()
+
+
 def getImageDim(data_source):
     try:
         files = os.listdir(data_source)
@@ -189,7 +217,6 @@ def loadData():
         return loadMNIST(data_source, "train")
     if data_source[-4:] == ".mid":
         print (" MUSIC! ")
-<<<<<<< HEAD
         song, shape = loadMidi(data_source)
         writeCutSongs(song)
         for i in range(len(song)):
@@ -200,14 +227,9 @@ def loadData():
                 cv2.imshow('Generated Image', res) # on windows, i had to install xming
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     sys.exit(0)
-=======
-        songs, shape = loadMidi(data_source)
-        print(shape)
-        writeCutSongs(songs)
->>>>>>> 4a9a355504e34ce18da4369a277af6163fc4e7ed
         global doing_music
         doing_music = 1
-        return songs, shape
+        return song, shape
     else:
         print (" COLOR IMAGES! ")
         return loadPixels(data_source)
@@ -251,9 +273,7 @@ def trainGAN(train_data, epochs, batch_size):
         for b in range(len(train_data)//batch_size):
             chosen_data_indexes = np.random.randint(1,train_data.shape[0],size = batch_size)
             data_x = np.array([train_data[i] for i in chosen_data_indexes]) #get next batch of the right size from training data
-            # data_x = np.reshape(data_x, ((batch_size,) +data_shape))
-            # Below for non conv input to discriminator
-            # data_x = np.reshape(data_x, (batch_size, data_size))
+            #data_x = np.reshape(data_x, ((batch_size) +data_shape))
 
             #train discriminator
             generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
@@ -285,7 +305,7 @@ def trainGAN(train_data, epochs, batch_size):
              arr = generator.predict(seed)
              if doing_music:
                  saveMidi(arr, e, output_dir)
-             # saveImage(arr, e)
+             saveImage(arr, e)
         if e % args.plot_every == 0:
             arr = generator.predict(seed)
             plotLoss(e)

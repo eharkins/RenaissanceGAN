@@ -41,43 +41,6 @@ def get_standardized_note_tracks(tracks, num_songs, beats_per_minisong):
   for track_n in range(len(tracks)):
     track = tracks[track_n]
     # add our instrument to the array to keep track of instruments on each channel
-<<<<<<< HEAD
-    instrument_list.append(track.getInstrument())
-    notes = track.flat.notesAndRests.stream()
-    measure = beat = 0 #measure is minisong
-    note_n = 0 # index of current note
-    beat_in_note = 0 #index of beat within note
-    print ("notes length is: ", len(notes))
-    # for each note in the entire track including rests
-    while (measure < num_songs and note_n < len(notes)):
-        note = notes[note_n]
-
-        #add note to array only if start of note
-        if beat_in_note == 0:
-            if note.isChord:
-              for p in note.pitches:
-                # put the pitch into the corresponding index in the array
-                final_tracks[measure, beat, p.midi-lowest_pitch, track_n] = note.volume.velocity/MAX_VOL
-            elif not note.isRest:
-                # put the pitch into the corresponding index in the array
-                final_tracks[measure, beat, note.pitch.midi-lowest_pitch, track_n] = note.volume.velocity/MAX_VOL
-
-        beat += 1
-        beat_in_note +=1
-
-        # move to next note
-        if beat_in_note == int(note.quarterLength/lengthPerBeat):
-            note_n += 1
-            beat_in_note = 0
-
-        # move to next measure
-        if beat == beats_per_minisong:
-            beat = 0
-            measure +=1
-        #print ("measure: ", measure, " beat: ", beat, " note: ", note_n)
-        #cuts songs short to prevent crashing
-    # next track
-=======
     inst = track.getInstrument()
     inst_name = inst.instrumentName
     print ("instrument", track_n, " is: ", inst_name)
@@ -100,8 +63,6 @@ def get_standardized_note_tracks(tracks, num_songs, beats_per_minisong):
                 addNote(v.notes, final_tracks, measure_in_song, minisong, track_n)
         else:
             addNote(m.notes, final_tracks, measure_in_song, minisong, track_n)
-
->>>>>>> 658251d48fa6a0bc80539dc47e507ef9d9b11af0
   return final_tracks
 
 def loadMidi(data_source):
@@ -193,9 +154,4 @@ def writeCutSongs(notesData, directory = "output/midi_input"):
     #notesData = notesData[:,:,:,:3] # this should be removed ultimately but currently drum tracks get turned into piano and sound terrible
     for x in range(len(notesData)):
         reMIDIfy(notesData[x], directory+"/input_song_"+str(x))
-<<<<<<< HEAD
-        # visualize(notesData[x])
-        cv2.imwrite(directory+"/input_score_%d.png" % x, notesData[x]*255)
-=======
         #cv2.imwrite(directory+"/input_score_%d.png" % x, notesData[x]*255)
->>>>>>> 658251d48fa6a0bc80539dc47e507ef9d9b11af0
