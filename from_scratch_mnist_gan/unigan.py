@@ -16,7 +16,9 @@ import argparse
 from music21 import midi, stream, pitch, note, tempo, chord
 os.environ["KERAS_BACKEND"] = "tensorflow"
 
-from gan_model import *
+#from gan_model import *
+from midi_model import *
+#from image_model import *
 from music_util import *
 
 #change this directory to where hdf5 file is stored so nikhil can function as a cross-compatible special snowflake
@@ -126,23 +128,30 @@ def loadMNIST(data_source, dataType, imageDim = 28):
 def generateImage(arr, magnification = 10):
     #take first three tracks for music
     #print("before", arr)
-    if (arr.shape[2] > 3):
-        arr = arr[:,:,:3]
-    #Fill channels to have 3 for vizualization
-    elif (arr.shape[2] < 3):
-        # shape we want with channels first
-        img_arr = np.zeros((3,arr.shape[1],arr.shape[0]))
-        # what we have with channels first
-        channels_first = np.swapaxes(arr, 0, 2)
-        # fill what we can of the container with the data from the channels we do have
-        for i in range(len(channels_first)):
-            img_arr[i] = channels_first[i]
-        #swap back to the right order of dimensions
-        arr = np.swapaxes(img_arr, 0, 2)
+    #looping tracks onto new colors
+    #img = np.zeros((arr.shape[0], arr.shape[1], arr[2])
+    #print ("array length should be number of tracks: ", len(arr), " array shape is: ", arr.shape)
+    #deal with more or less than 3 channels
+    img = np.zeros((arr.shape[0], arr.shape[1], 3))
+    for i in range(arr.shape[2]):
+        img[:,:,i%3] += arr[:,:,i]
+    #if (arr.shape[2] > 3):
+        #arr = arr[:,:,:3]# + arr[:,:,3:6]
+    #fill channels to have 3 for vizualization if there's less than 2
+    # elif (arr.shape[2] < 3):
+    #     # shape we want with channels first
+    #     img_arr = np.zeros((3,arr.shape[1],arr.shape[0]))
+    #     # what we have with channels first
+    #     channels_first = np.swapaxes(arr, 0, 2)
+    #     # fill what we can of the container with the data from the channels we do have
+    #     for i in range(len(channels_first)):
+    #         img_arr[i] = channels_first[i]
+    #     #swap back to the right order of dimensions
+    #     arr = np.swapaxes(img_arr, 0, 2)
     if doing_music:
-        arr = 1-arr
+        img = 1-img
     #print("after", img)
-    res = cv2.resize(arr, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+    res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
     return res
 
 def visualize(arr):
@@ -217,10 +226,10 @@ def loadData():
             os.makedirs(debug_dir)
         for i in range(len(songs)):
             minisong = songs[i]
+            res = generateImage((minisong))
+            cv2.imwrite(output_dir+"/midi_input/input_score_%d.png" % i, res*255)
             if args.display:
-                res = generateImage((minisong))
                 #print ("writing image to: "+ debug_dir + "/input_score_%d.png" % i)
-                cv2.imwrite(output_dir+"/midi_input/input_score_%d.png" % i, res*255)
                 cv2.imshow('Dataset Image', res)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     sys.exit(0)
@@ -292,21 +301,19 @@ def trainGAN(train_data, epochs, batch_size):
                 else:
                     visualize(arr)
 
-        dLosses.append(dloss)
-        gLosses.append(gloss)
-        accuracies.append(accuracy)
+            dLosses.append(dloss)
+            gLosses.append(gloss)
+            accuracies.append(accuracy)
         print("Discriminator loss: ", dloss)
         print("Generator loss: ", gloss)
         #print("Accuracy: ", accuracy)
 
         if e % args.save_every == 0:
-             # saveModels(e)
-             arr = generator.predict(seed)
-             if doing_music:
-                 saveMidi(arr, e, output_dir)
-                 saveImage(arr, e)
-             else:
-                 saveImage(arr, e)
+            # saveModels(e)
+            arr = generator.predict(seed)
+            if doing_music:
+                saveMidi(arr, e, output_dir)
+            saveImage(arr, e)
 
         if e % args.plot_every == 0:
             arr = generator.predict(seed)
