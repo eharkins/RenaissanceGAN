@@ -17,6 +17,7 @@ from music21 import midi, stream, pitch, note, tempo, chord
 os.environ["KERAS_BACKEND"] = "tensorflow"
 
 from gan_model import *
+#from nikhil_convoluted_model import *
 from music_util import *
 
 #change this directory to where hdf5 file is stored so nikhil can function as a cross-compatible special snowflake
@@ -85,8 +86,8 @@ def loadPixels(data_source):
         pic = cv2.imread(os.path.join(data_source,files[i]))
 
         images[i] = pic
-        if args.display:
-            visualize(pic)
+        # if args.display:
+        #     visualize(pic)
     data = images/255
     return data, data_shape
     #return images
@@ -274,11 +275,11 @@ def trainGAN(train_data, epochs, batch_size):
                 else:
                     visualize(arr)
 
-        dLosses.append(dloss)
-        gLosses.append(gloss)
-        accuracies.append(accuracy)
-        print("Discriminator loss: ", dloss)
-        print("Generator loss: ", gloss)
+            dLosses.append(dloss)
+            gLosses.append(gloss)
+            accuracies.append(accuracy)
+            print("Discriminator loss: ", dloss)
+            print("Generator loss: ", gloss)
         #print("Accuracy: ", accuracy)
 
         if e % args.save_every == 0:
