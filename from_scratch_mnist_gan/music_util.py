@@ -7,81 +7,13 @@ import numpy as np
 # highest_pitch = 127
 # note_range = highest_pitch-lowest_pitch
 lowest_pitch = 30
-highest_pitch = 127################################################################################
+highest_pitch = 127
 note_range = highest_pitch-lowest_pitch
-beats_per_measure = 16 ###########################################################################
-measures_per_minisong = 2
+beats_per_measure = 16
+measures_per_minisong = 1
 beats_per_minisong = beats_per_measure * measures_per_minisong
 instrument_list = []
-MAX_VOL = 127  ###################################################################################
-
-##############################################################################################
-###############added this for testing#################################################
-def get_test_song():
-    test_song = np.zeros((100, 16, 61, 2))
-    for song_num in range(100):
-        for beat_num in range(0,12,3):
-            print("index:  "  , beat_num*4)
-            test_song[song_num][beat_num][beat_num*4][0]=1
-            test_song[song_num][beat_num][beat_num*4+7][0]=1
-            #fill the next two beats with rests
-
-    for song_num in range(100):
-        for beat_num in range(0,12,3):
-            test_song[song_num][beat_num][60-beat_num*4][1]=1
-            #test_song[song_num][beat_num][60-beat_num*4+7][1]=1
-            #fill the next two beats with rests
-    test_data_shape = (16, 61, 2)
-    return test_song, test_data_shape
-
-
-def test_reMIDIfy(minisong, output):
-    # each note
-    s1 = stream.Stream()
-    # assign the tempo based on what was read in
-    t = tempo.MetronomeMark('fast', song_tempo, note.Note(type='quarter'))
-    # t = tempo.MetronomeMark('fast', 240, note.Note(type='quarter'))
-    s1.append(t)
-    #minisong = minisong.reshape((beats_per_minisong, note_range, channels))
-    channels = minisong.shape[2]
-    #data_shape = (beats_per_minisong, note_range, channels)
-    for curr_channel in range(channels):
-        new_part = stream.Part()
-        new_part.insert(0, instrument.fromString('piano'))
-        for beat in range(beats_per_minisong):
-            notes = []
-            for curr_pitch in range(note_range):
-                #if this pitch is produced with at least 10% likelihood then count it
-                if minisong[beat][curr_pitch][curr_channel]>.1:
-                    p = pitch.Pitch()
-                    p.midi = curr_pitch+lowest_pitch
-                    n = note.Note(pitch = p)
-                    n.pitch = p
-                    print(minisong[beat][curr_pitch][curr_channel])
-                    n.volume.velocity = minisong[beat][curr_pitch][curr_channel]*MAX_VOL
-                    n.quarterLength = lengthPerBeat
-                    notes.append(n)
-            if notes:
-                my_chord = chord.Chord(notes)
-
-            else:
-                my_chord = note.Rest()
-                my_chord.quarterLength = lengthPerBeat
-
-            new_part.append(my_chord)
-        s1.insert(curr_channel, new_part)
-
-    mf = midi.translate.streamToMidiFile(s1)
-    mf.open(output + ".mid", 'wb')
-    mf.write()
-    mf.close()
-
-def test_saveMidi(notesData, epoch, output_dir):
-    f = output_dir+"/song_"+str(epoch)
-    test_reMIDIfy(notesData[0], f)
-    print (" saving song as ", f)
-#################################################################################################
-#################################################################################################
+MAX_VOL = 127
 
 
 # LENGTH PER BEAT IS THE STANDARDIZED LENGTH OF NOTES/RESTS
@@ -143,8 +75,8 @@ def loadMidi(data_source):
     mf.close()
 
     #read to stream
-    a = midi.translate.midiFileToStream(mf)
-    s = instrument.partitionByInstrument(a)
+    s = midi.translate.midiFileToStream(mf)
+    #s = instrument.partitionByInstrument(a)
     metronome = s.metronomeMarkBoundaries()[0]
     temp = metronome[2].getQuarterBPM()
     global song_tempo
@@ -220,16 +152,6 @@ def saveMidi(notesData, epoch, output_dir):
     f = output_dir+"/song_"+str(epoch)
     reMIDIfy(notesData[0], f)
     print (" saving song as ", f)
-
-def testWriteCutSongs(notesData, directory = "output/midi_input"):
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    #print ("number of song fragments: "s, len(notesData))
-    #print ("shape of notes is: ", notesData.shape)
-    #notesData = notesData[:,:,:,:3] # this should be removed ultimately but currently drum tracks get turned into piano and sound terrible
-    for x in range(len(notesData)):
-        test_reMIDIfy(notesData[x], directory+"/input_song_"+str(x))
-        #cv2.imwrite(directory+"/input_score_%d.png" % x, notesData[x]*255)
 
 def writeCutSongs(notesData, directory = "output/midi_input"):
     if not os.path.exists(directory):
