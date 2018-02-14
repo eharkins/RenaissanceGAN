@@ -113,7 +113,6 @@ def get_standardized_note_tracks(num_songs, beats_per_minisong, tracks):
     # add our instrument to the array to keep track of instruments on each channel
     inst = track.getInstrument()
     inst_name = inst.instrumentName
-    print(inst_name)
     print ("instrument", track_n, " is: ", inst_name)
     # print("notes: ")
     # notes.show('text')
@@ -143,8 +142,8 @@ def loadMidi(data_source):
     mf.close()
 
     #read to stream
-    a = midi.translate.midiFileToStream(mf)
-    s = instrument.partitionByInstrument(a)
+    s = midi.translate.midiFileToStream(mf)
+    # s = instrument.partitionByInstrument(a)
     metronome = s.metronomeMarkBoundaries()[0]
     temp = metronome[2].getQuarterBPM()
     global song_tempo
@@ -153,7 +152,7 @@ def loadMidi(data_source):
 
     #number of parts/instruments
     tracks = s.parts
-    #tracks = tracks[:3]
+    #tracks = tracks[:2]
     print("CHANNELS : ", len(tracks))
     channels = len(tracks)
     data_shape = (beats_per_minisong, note_range, channels)
@@ -189,6 +188,7 @@ def reMIDIfy(minisong, output):
     #data_shape = (beats_per_minisong, note_range, channels)
     for curr_channel in range(channels):
         new_part = stream.Part([instrument_list[curr_channel]])
+        print(instrument_list[curr_channel])
         for beat in range(beats_per_minisong):
             notes = []
             for curr_pitch in range(note_range):
