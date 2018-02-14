@@ -122,10 +122,24 @@ def loadMNIST(data_source, dataType, imageDim = 28):
 
 def generateImage(arr, magnification = 10):
     #take first three tracks for music
+    #print("before", arr)
     if (arr.shape[2] > 3):
         arr = arr[:,:,:3]
-    img = arr
-    res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
+    #Fill channels to have 3 for vizualization
+    elif (arr.shape[2] < 3):
+        # shape we want with channels first
+        img_arr = np.zeros((3,arr.shape[1],arr.shape[0]))
+        # what we have with channels first
+        channels_first = np.swapaxes(arr, 0, 2)
+        # fill what we can of the container with the data from the channels we do have
+        for i in range(len(channels_first)):
+            img_arr[i] = channels_first[i]
+        #swap back to the right order of dimensions
+        arr = np.swapaxes(img_arr, 0, 2)
+    if doing_music:
+        arr = 1-arr
+    #print("after", img)
+    res = cv2.resize(arr, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
     return res
 
 def visualize(arr):
@@ -189,23 +203,26 @@ def loadData():
         return loadMNIST(data_source, "train")
     if data_source[-4:] == ".mid":
         print (" MUSIC! ")
-        song, shape = loadMidi(data_source)
+        #songs, shape = get_test_song()
+        global doing_music
+        doing_music = 1
+        songs, shape = loadMidi(data_source)
         debug_dir = output_dir + "/midi_input"
-        writeCutSongs(song, debug_dir)
+        #testWriteCutSongs(songs, debug_dir)####################################################################################
+        writeCutSongs(songs, debug_dir)
         if not os.path.exists(debug_dir):
             os.makedirs(debug_dir)
-        for i in range(len(song)):
-            minisong = song[i]
+        for i in range(len(songs)):
+            minisong = songs[i]
             if args.display:
-                res = generateImage((1-minisong))
+                res = generateImage((minisong))
                 #print ("writing image to: "+ debug_dir + "/input_score_%d.png" % i)
                 cv2.imwrite(output_dir+"/midi_input/input_score_%d.png" % i, res*255)
                 cv2.imshow('Dataset Image', res)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     sys.exit(0)
-        global doing_music
-        doing_music = 1
-        return song, shape
+
+        return songs, shape
     else:
         print (" COLOR IMAGES! ")
         return loadPixels(data_source)
@@ -270,7 +287,7 @@ def trainGAN(train_data, epochs, batch_size):
             if args.display:
                 arr = generator.predict(seed)[0]
                 if doing_music:
-                    visualize(1-arr)
+                    visualize(arr)
                 else:
                     visualize(arr)
 
@@ -286,7 +303,7 @@ def trainGAN(train_data, epochs, batch_size):
              arr = generator.predict(seed)
              if doing_music:
                  saveMidi(arr, e, output_dir)
-                 saveImage(1-arr, e)
+                 saveImage(arr, e)
              else:
                  saveImage(arr, e)
         if e % args.plot_every == 0:
