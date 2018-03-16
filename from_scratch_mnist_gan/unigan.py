@@ -16,8 +16,10 @@ import argparse
 from music21 import midi, stream, pitch, note, tempo, chord
 os.environ["KERAS_BACKEND"] = "tensorflow"
 
-#from gan_model import *
-from midi_model import *
+from gan_model import *
+#from nikhil_convoluted_model import *
+#from modified_midi_model import *
+#from midi_model import *
 #from image_model import *
 from music_util import *
 
@@ -198,7 +200,6 @@ def plotLoss(epoch):
     plt.savefig(output_dir + '/gan_loss_epoch_%d.png' % epoch)
     plt.close()
     print ("Saving loss graph as "+ output_dir + "/gan_loss_epoch_%d.png" % epoch)
-
 
 def saveImage(arr, e, low_loss=False):
   img = generateImage(arr[0])*255

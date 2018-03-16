@@ -148,10 +148,33 @@ def reMIDIfy(minisong, output):
     mf.write()
     mf.close()
 
+def playSong(music_file):
+    #clock = pygame.time.Clock()
+    try:
+        pygame.mixer.music.load(music_file)
+        print ("playing song:", music_file)
+    except pygame.error:
+        print ("File %s not found! (%s)" % (music_file, pygame.get_error()))
+        return
+    except KeyboardInterrupt:
+        # if user hits Ctrl/C then exit
+        # (works only in console mode)
+        pygame.mixer.music.fadeout(1000)
+        pygame.mixer.music.stop()
+        raise SystemExit
+    pygame.mixer.music.play()
+    # while pygame.mixer.music.get_busy():
+    #     # check if playback has finished
+    #     clock.tick(30)
+
+
+
 def saveMidi(notesData, epoch, output_dir):
     f = output_dir+"/song_"+str(epoch)
     reMIDIfy(notesData[0], f)
-    print (" saving song as ", f)
+    #print (" saving song as ", f)
+    # if not pygame.mixer.music.get_busy():
+    #     playSong(f)
 
 def writeCutSongs(notesData, directory = "output/midi_input"):
     if not os.path.exists(directory):
