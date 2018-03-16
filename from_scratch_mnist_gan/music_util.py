@@ -10,7 +10,7 @@ lowest_pitch = 30
 highest_pitch = 127
 note_range = highest_pitch-lowest_pitch
 beats_per_measure = 16
-measures_per_minisong = 1
+measures_per_minisong = 4
 beats_per_minisong = beats_per_measure * measures_per_minisong
 instrument_list = []
 MAX_VOL = 127
@@ -35,38 +35,42 @@ def addNote(notes, final_tracks, measure_in_song, minisong, track_n):
 
 def get_standardized_note_tracks(num_songs, beats_per_minisong, tracks):
     #first dimension is minisong number * notes per minisong
-  #final_tracks = np.zeros((longest_track, note_range, len(tracks)))
-  final_tracks = np.zeros((num_songs, beats_per_minisong, note_range, len(tracks)))
-  print ("tracks size is: ", len(tracks))
-  print ("final tracks shape is: ", final_tracks.shape)
-  global instrument_list
-  for track_n in range(len(tracks)):
-    track = tracks[track_n]
-    # add our instrument to the array to keep track of instruments on each channel
-    inst = track.getInstrument()
-    inst_name = inst.instrumentName
-    print(inst_name)
-    print ("instrument", track_n, " is: ", inst_name)
-    # print("notes: ")
-    # notes.show('text')
-    global instrument_list
-    instrument_list.append(inst)
-    if(inst_name == None):
-        continue
-        print("NO INSTRUMENT")
-    measures = track.flat.notes.stream().measures(0, None)
-    measures = measures.getElementsByClass("Measure")
-    print ("number of measures: ", len(measures))
-    for measure in range(len(measures)):
-        m = measures[measure]
-        minisong = int(measure/measures_per_minisong)
-        measure_in_song = measure%measures_per_minisong
-        if m.voices:
-            for v in m.voices:
-                addNote(v.notes, final_tracks, measure_in_song, minisong, track_n)
-        else:
-            addNote(m.notes, final_tracks, measure_in_song, minisong, track_n)
-  return final_tracks
+    # final_tracks = np.zeros((num_songs, beats_per_minisong, note_range, len(tracks)))
+    final_tracks = np.zeros((num_songs, beats_per_minisong, note_range, len(tracks)))
+    print ("tracks size is: ", len(tracks))
+    print ("final tracks shape is: ", final_tracks.shape)
+    # global instrument_list
+    for track_n in range(len(tracks)):
+        track = tracks[track_n]
+        # add our instrument to the array to keep track of instruments on each channel
+        inst = track.getInstrument()
+        inst_name = inst.instrumentName
+        print ("instrument", track_n, " is: ", inst_name)
+        # print("notes: ")
+        # notes.show('text')
+        global instrument_list
+        if(inst_name == None):
+            print("NO INSTRUMENT")
+            inst_name = 'Piano'
+            # global instrument_list
+            instrument_list.append(inst_name)
+            continue
+        # global instrument_list
+        instrument_list.append(inst_name)
+
+        measures = track.flat.notes.stream().measures(0, None)
+        measures = measures.getElementsByClass("Measure")
+        print ("number of measures: ", len(measures))
+        for measure in range(len(measures)):
+            m = measures[measure]
+            minisong = int(measure/measures_per_minisong)
+            measure_in_song = measure%measures_per_minisong
+            if m.voices:
+                for v in m.voices:
+                    addNote(v.notes, final_tracks, measure_in_song, minisong, track_n)
+            else:
+                addNote(m.notes, final_tracks, measure_in_song, minisong, track_n)
+    return final_tracks
 
 def loadMidi(data_source):
     mf = midi.MidiFile()
@@ -76,7 +80,7 @@ def loadMidi(data_source):
 
     #read to stream
     s = midi.translate.midiFileToStream(mf)
-    #s = instrument.partitionByInstrument(a)
+    # s = instrument.partitionByInstrument(a)
     metronome = s.metronomeMarkBoundaries()[0]
     temp = metronome[2].getQuarterBPM()
     global song_tempo
@@ -85,7 +89,7 @@ def loadMidi(data_source):
 
     #number of parts/instruments
     tracks = s.parts
-    #tracks = tracks[:3]
+    tracks = tracks[:2]
     print("CHANNELS : ", len(tracks))
     channels = len(tracks)
     data_shape = (beats_per_minisong, note_range, channels)
@@ -120,7 +124,10 @@ def reMIDIfy(minisong, output):
     channels = minisong.shape[2]
     #data_shape = (beats_per_minisong, note_range, channels)
     for curr_channel in range(channels):
-        new_part = stream.Part([instrument_list[curr_channel]])
+        inst = instrument.fromString(instrument_list[curr_channel])
+        new_part = stream.Part()
+        new_part.insert(0, inst)
+        print(instrument_list[curr_channel])
         for beat in range(beats_per_minisong):
             notes = []
             for curr_pitch in range(note_range):
