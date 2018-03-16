@@ -16,15 +16,17 @@ import argparse
 from music21 import midi, stream, pitch, note, tempo, chord
 os.environ["KERAS_BACKEND"] = "tensorflow"
 
-from gan_model import *
+#from gan_model import *
 #from nikhil_convoluted_model import *
 #from modified_midi_model import *
 #from midi_model import *
 #from image_model import *
+from re_model import *
 from music_util import *
 
 #change this directory to where hdf5 file is stored so nikhil can function as a cross-compatible special snowflake
 DATASETS_DIR = os.path.dirname(os.path.realpath(__file__))
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -54,7 +56,6 @@ def parse_args():
     return parser.parse_args()
 
 
-
 os.environ["KERAS_BACKEND"] = "tensorflow"
 
 args = parse_args()
@@ -65,7 +66,32 @@ epochs = args.epochs
 batch_size = args.batch
 doing_music = 0
 
-
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--epochs', type=int, default=12000,
+                        help='the number of training steps to take')
+    parser.add_argument('--batch', type=int, default=20,
+                        help='the batch size')
+    # parser.add_argument('--display', type=int, default=0,
+    #                     help='display live with opencv')
+    # parser.add_argument ('--data', type=str, default='flower',
+    #                     help='data to parse, ****_sprites should be input, ***_output should be output)')
+    parser.add_argument('--input', type=str, default='bach.mid',
+                        help='directory of examples (within colors)')
+    parser.add_argument('--output', type=str, default='uni_generated',
+                        help='directory of output (within colors)')
+    parser.add_argument('--plot-every', type=int, default=25,
+                            help='how many epochs between saving the graph')
+    parser.add_argument('--save-every', type=int, default=5,
+                                help='how many epochs between printing image')
+    parser.add_argument('--channels', type=int, default=3,
+                        help='color:3 bw: 1')
+    parser.add_argument('--display', dest='display', action='store_true')
+    parser.add_argument('--no-display', dest='display', action='store_false')
+    parser.set_defaults(display=True)
+    # parser.add_argument('--display', type =bool, default=False,
+    #                     help='display live with opencv')
+    return parser.parse_args()
 
 
 def getImageDim(data_source):
@@ -183,14 +209,18 @@ def saveImage(arr, e, low_loss=False):
   else:
     cv2.imwrite(output_dir + '/generated_image_epoch_%d.png' % e, img)
 
-#save a bunch of random images
-def saveAlbum(generator, e, shape = (3,3)):
+#save several images from seeds
+def saveAlbum(generator, e, data_shape, seeds):
     #noise = np.random.normal(0, 1, size=[shape+noise_shape])
+    shape = seeds.shape
+    #print ("shape is: ", shape)
     collage = np.empty (shape = (shape[0]*data_shape[0],shape[1]*data_shape[1],data_shape[2]))
     for x in range (shape[0]):
         for y in range (shape[1]):
-            noise = np.random.random(shape+(1,)+noise_shape)
-            image = generator.predict(noise[x,y])
+            #noise = np.random.random(shape+(1,)+noise_shape)
+            #image = generator.predict(noise[x,y])
+            seed = seeds[x,y]
+            image = generator.predict(seed.reshape((1,100)))
             #place pixel values of image in the collage
             collage[x*data_shape[0]:(x+1)*data_shape[0],y*data_shape[1]:(y+1)*data_shape[1]] = (image)
         # for y in range (shape[1])
@@ -204,11 +234,12 @@ if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
 #defining noise vector size
-noise_vect_size = 10
+noise_vect_size = 100
 np.random.seed(1000)
 #seed= np.random.rand(noise_vect_size)
 seed = np.random.normal(0, 1, size=[1, noise_vect_size])
 #seed = np.random.rand(1, noise_vect_size)
+seeds = np.random.uniform(-1,1,(3,3,noise_vect_size))
 
 def loadData():
     if(data_source[-5:] == ".hdf5"):
@@ -247,7 +278,7 @@ channels = data_shape[2]
 print ("channels is: ", channels)
 data_size = data_shape[0]*data_shape[1]*data_shape[2]
 
-gan, generator, discriminator = makeGAN(data_shape, 10)
+gan, generator, discriminator = makeGAN(data_shape, noise_vect_size)
 
 
 def saveSummary(filename = "info.txt"):
@@ -315,6 +346,7 @@ def trainGAN(train_data, epochs, batch_size):
             if doing_music:
                 saveMidi(arr, e, output_dir)
             saveImage(arr, e)
+            saveAlbum(generator, e, data_shape, seeds)
 
         if e % args.plot_every == 0:
             arr = generator.predict(seed)
