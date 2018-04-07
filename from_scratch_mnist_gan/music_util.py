@@ -10,7 +10,7 @@ lowest_pitch = 30
 highest_pitch = 127
 note_range = highest_pitch-lowest_pitch
 beats_per_measure = 16
-measures_per_minisong = 4
+measures_per_minisong = 8
 beats_per_minisong = beats_per_measure * measures_per_minisong
 instrument_list = []
 MAX_VOL = 127
@@ -89,7 +89,7 @@ def loadMidi(data_source):
 
     #number of parts/instruments
     tracks = s.parts
-    tracks = tracks[:2]
+    #tracks = tracks[:3]
     print("CHANNELS : ", len(tracks))
     channels = len(tracks)
     data_shape = (beats_per_minisong, note_range, channels)
