@@ -16,15 +16,16 @@ import argparse
 from music21 import midi, stream, pitch, note, tempo, chord
 os.environ["KERAS_BACKEND"] = "tensorflow"
 
+from music_util import *
+
 #from gan_model import *
 #from nikhil_convoluted_model import *
 #from modified_midi_model import *
-#from midi_model import *
+from midi_model import *
 #from image_model import *
-from re_model import *
-from music_util import *
+#from re_model import *
+#from adaptable_model import *
 
-#change this directory to where hdf5 file is stored so nikhil can function as a cross-compatible special snowflake
 DATASETS_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
@@ -303,6 +304,11 @@ def trainGAN(train_data, epochs, batch_size):
     batchCount = len(train_data) / batch_size
     #loop for number of epochs
     # new_learning_rate = 0.0002
+
+    y_g = [1]*batch_size
+    y_d_true = [1]*batch_size
+    y_d_gen = [0]*batch_size
+
     for e in range(1, epochs+1):
         #loop for total number of batches
         print ('Epoch:', e)
@@ -325,6 +331,19 @@ def trainGAN(train_data, epochs, batch_size):
             gan_x = np.random.random((batch_size,noise_vect_size))
             gan_y = np.ones(batch_size) #creates an array of ones (expected output)
             gloss = gan.train_on_batch(gan_x, gan_y)
+            #
+            # X_d_true = train_data[b*batch_size:(b+1)*batch_size]
+            # X_g = np.array([np.random.normal(0,0.5,100) for _ in range(batch_size)])
+            # X_d_gen = generator.predict(X_g, verbose=0)
+            # y_d_true = np.reshape(np.array(y_d_true),(batch_size,1))
+            # y_d_gen = np.reshape(np.array(y_d_gen),(batch_size,1))
+            # y_g = np.reshape(np.array(y_g),(batch_size,1))
+            # # train discriminator
+            # dloss, accuracy = discriminator.train_on_batch(X_d_true, y_d_true)
+            # dloss, accuracy = discriminator.train_on_batch(X_d_gen, y_d_gen)
+            # # train generator
+            # gloss = gan.train_on_batch(X_g, y_g)
+            #arr = generator.predict(seed)
 
             if args.display:
                 arr = generator.predict(seed)[0]
@@ -345,8 +364,9 @@ def trainGAN(train_data, epochs, batch_size):
             arr = generator.predict(seed)
             if doing_music:
                 saveMidi(arr, e, output_dir)
+            else:
+                saveAlbum(generator, e, data_shape, seeds)
             saveImage(arr, e)
-            saveAlbum(generator, e, data_shape, seeds)
 
         if e % args.plot_every == 0:
             arr = generator.predict(seed)
