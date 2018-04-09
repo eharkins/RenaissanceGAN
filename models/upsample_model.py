@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Reshape
 from keras.layers.normalization import BatchNormalization
@@ -10,7 +11,10 @@ LR = 0.0002  # initial learning rate
 B1 = 0.5  # momentum term
 opt = Adam(lr=LR,beta_1=B1)
 
-def generator(data_shape, noise_vect_size=100, activation = 'relu'):
+# a very lightly modified version of the mode originally used in dc gan.
+
+
+def makeGenerator(data_shape, noise_vect_size=100, activation = 'relu'):
 #def generator(input_dim=100,units=1024,activation='relu'):
     print("generator")
     data_size = data_shape[0]*data_shape[1]*data_shape[2]
@@ -42,7 +46,7 @@ def generator(data_shape, noise_vect_size=100, activation = 'relu'):
     print(model.summary())
     return model
 
-def discriminator(data_shape, nb_filter=64):
+def makeDiscriminator(data_shape, nb_filter=64):
     model = Sequential()
     model.add(Conv2D(nb_filter, (5, 5), strides=(2, 2), padding='same',
                             input_shape=data_shape))
@@ -66,16 +70,22 @@ def discriminator(data_shape, nb_filter=64):
     print(model.summary())
     return model
 
+
 def makeGAN(data_shape, noise_vect_size = 100):
-    g = generator(data_shape, noise_vect_size)
-    d = discriminator(data_shape)
+
+    g = makeGenerator(data_shape, noise_vect_size)
+    d = makeDiscriminator(data_shape)
+    # print ("data shape is: ", data_shape)
+    # print("Generator ",g )
+    opt = Adam(lr=LR,beta_1=B1)
     d.trainable = True
     d.compile(loss='binary_crossentropy',
               metrics=['accuracy'],
               optimizer=opt)
     d.trainable = False
-    dcgan = Sequential([g, d])
-    dcgan.compile(loss='binary_crossentropy',
+    gan = Sequential([g, d])
+    gan.compile(loss='binary_crossentropy',
                   #metrics=['accuracy'],
                   optimizer=opt)
-    return dcgan, g, d
+
+    return gan, g, d
