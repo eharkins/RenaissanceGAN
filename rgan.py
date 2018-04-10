@@ -1,4 +1,4 @@
-
+Renaissance
 from keras.datasets import mnist
 from keras import backend as K
 import keras.utils
@@ -114,7 +114,7 @@ def generateImage(arr, magnification = 10):
 
 def visualize(arr):
     res = generateImage(arr)
-    cv2.imshow('Rennaissance GAN', res) # on windows, x server is needed
+    cv2.imshow('Renaissance GAN', res) # on windows, x server is needed
     if cv2.waitKey(1) & 0xFF == ord('q'):
         sys.exit(0)
 
@@ -181,6 +181,8 @@ if data_source[-4:] == ".mid":
     songs, shape = loadMidi(data_source)
     debug_dir = output_dir + "/midi_input"
     writeCutSongs(songs, debug_dir)
+    if args.display:
+        initPygame();
     if not os.path.exists(debug_dir):
         os.makedirs(debug_dir)
     for i in range(len(songs)):
@@ -188,7 +190,7 @@ if data_source[-4:] == ".mid":
         res = generateImage((minisong))
         cv2.imwrite(output_dir+"/midi_input/input_score_%d.png" % i, res*255)
         if args.display:
-            cv2.imshow('Rennaissance GAN', res)
+            cv2.imshow('Renaissance GAN', res)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 sys.exit(0)
 
@@ -197,15 +199,37 @@ elif data_source[-5:] == ".hdf5":
     print (" MNIST! ")
     x_train, data_shape = loadMNIST(data_source, "train")
 else:
-    print (" COLOR IMAGES! ")
-    x_train, data_shape = loadPixels(data_source)
+    #get first file
+    if os.listdir(data_source)[0][-4:] == ".mid":
+        print (" MUSIC! (MULTIPLE SONGS)")
+        doing_music = 1
+        from music_util import *
+        from models.midi_model import *
+        songs, shape = loadManyMidi(data_source)
+        debug_dir = output_dir + "/midi_input"
+        writeCutSongs(songs, debug_dir)
+        if args.display:
+            initPygame();
+        if not os.path.exists(debug_dir):
+            os.makedirs(debug_dir)
+        for i in range(len(songs)):
+            minisong = songs[i]
+            res = generateImage((minisong))
+            cv2.imwrite(output_dir+"/midi_input/input_score_%d.png" % i, res*255)
+            if args.display:
+                cv2.imshow('Rennaissance GAN', res)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    sys.exit(0)
+        x_train, data_shape = songs, shape
+    else:
+        print (" COLOR IMAGES! ")
+        x_train, data_shape = loadPixels(data_source)
 if not doing_music:
     from models.upsample_model import *
 
 # x_train, data_shape = loadData()
 
 
-minisong_size = data_shape[1]
 channels = data_shape[2]
 data_size = data_shape[0]*data_shape[1]*data_shape[2]
 
@@ -293,7 +317,7 @@ def trainGAN(train_data, epochs, batch_size):
         if e % args.save_every == 0:
             arr = generator.predict(seed)
             if doing_music:
-                saveMidi(arr, e, output_dir)
+                saveMidi(arr, e, output_dir, args.display)
                 saveImage(arr, e)
             else:
                 saveAlbum(generator, e, data_shape, seeds)

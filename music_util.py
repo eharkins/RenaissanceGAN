@@ -38,16 +38,16 @@ def get_standardized_note_tracks(num_songs, beats_per_minisong, tracks):
     for track_n in range(len(tracks)):
         track = tracks[track_n]
         # add our instrument to the array to keep track of instruments on each channel
-        inst = track.getInstrument()
-        inst_name = inst.instrumentName
-        print ("instrument", track_n, " is: ", inst_name)
-        global instrument_list
-        if(inst_name == None):
-            print("NO INSTRUMENT")
-            inst_name = 'Piano'
-            instrument_list.append(inst_name)
-            continue
-        instrument_list.append(inst_name)
+        # inst = track.getInstrument()
+        # inst_name = inst.instrumentName
+        # print ("instrument", track_n, " is: ", inst_name)
+        # global instrument_list
+        # if(inst_name == None):
+        #     print("NO INSTRUMENT")
+        #     inst_name = 'Piano'
+        #     instrument_list.append(inst_name)
+        #     continue
+        # instrument_list.append(inst_name)
 
         measures = track.flat.notes.stream().measures(0, None)
         measures = measures.getElementsByClass("Measure")
@@ -78,7 +78,20 @@ def loadMidi(data_source):
     song_tempo = temp
 
     #number of parts/instruments
-    tracks = s.parts
+    all_tracks = s.parts
+    tracks = []
+
+    print ("number of tracks is", len(all_tracks))
+    for track in all_tracks:
+        inst = track.getInstrument().instrumentName
+        print ("track is: ", inst)
+        if(inst == None):
+            print("NO INSTRUMENT")
+            #inst_name = 'Piano'
+        else:
+            instrument_list.append(inst)
+            tracks.append(track)
+
     #tracks = tracks[:3]
     print("CHANNELS : ", len(tracks))
     channels = len(tracks)
@@ -94,6 +107,32 @@ def loadMidi(data_source):
     minisongs = get_standardized_note_tracks(num_songs, BEATS_PER_MINISONG, tracks)
     return minisongs, data_shape
 
+def loadManyMidi(data_source):
+    #channels = 3
+    #imageDim = getImageDim(data_source)
+    #data_shape = (imageDim, imageDim, 3)
+    try:
+        files = os.listdir(data_source)
+    except:
+        print ("cannot load directory: " + data_source)
+        sys.exit(0)
+    channels = 1
+    count = len(files)
+    songs = np.empty((0,BEATS_PER_MINISONG,NOTE_RANGE,0))
+    for i in range(count):
+        song_songs, data_shape = loadMidi(data_source + "/" + files[i])
+        if data_shape[2] > channels:
+            channels = data_shape[2]
+            songs.resize(songs.shape[0],songs.shape[1],songs.shape[2],channels)
+        elif data_shape[2] < channels:
+            song_songs.resize(song_songs.shape[0],song_songs.shape[1],song_songs.shape[2],channels)
+        print ("total songs shape is:", songs.shape)
+        print ("song songs shape is:", songs.shape)
+        songs = np.concatenate((songs, song_songs), axis=0)
+
+    return songs, (BEATS_PER_MINISONG, NOTE_RANGE, channels)
+
+
 def reMIDIfy(minisong, output):
     # each note
     s1 = stream.Stream()
@@ -105,7 +144,6 @@ def reMIDIfy(minisong, output):
         inst = instrument.fromString(instrument_list[curr_channel])
         new_part = stream.Part()
         new_part.insert(0, inst)
-        print(instrument_list[curr_channel])
         for beat in range(BEATS_PER_MINISONG):
             notes = []
             for curr_pitch in range(NOTE_RANGE):
@@ -134,7 +172,7 @@ def reMIDIfy(minisong, output):
     mf.close()
 
 def playSong(music_file):
-    #clock = pygame.time.Clock()
+    music_file += ".mid"
     try:
         pygame.mixer.music.load(music_file)
         print ("playing song:", music_file)
@@ -142,23 +180,22 @@ def playSong(music_file):
         print ("File %s not found! (%s)" % (music_file, pygame.get_error()))
         return
     except KeyboardInterrupt:
-        # if user hits Ctrl/C then exit
-        # (works only in console mode)
         pygame.mixer.music.fadeout(1000)
         pygame.mixer.music.stop()
         raise SystemExit
     pygame.mixer.music.play()
-    # while pygame.mixer.music.get_busy():
-    #     # check if playback has finished
-    #     clock.tick(30)
 
+def initPygame():
+    global pygame
+    import pygame
+    pygame.mixer.init()
 
-
-def saveMidi(notesData, epoch, output_dir):
+def saveMidi(notesData, epoch, output_dir, play_live):
     f = output_dir+"/song_"+str(epoch)
     reMIDIfy(notesData[0], f)
-    # if not pygame.mixer.music.get_busy():
-    #     playSong(f)
+    if play_live:
+        if not pygame.mixer.music.get_busy():
+            playSong(f)
 
 def writeCutSongs(notesData, directory = "output/midi_input"):
     if not os.path.exists(directory):
