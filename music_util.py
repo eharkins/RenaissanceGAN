@@ -86,11 +86,11 @@ def loadMidi(data_source):
         inst = track.getInstrument().instrumentName
         print ("track is: ", inst)
         if(inst == None):
-            print("NO INSTRUMENT")
-            #inst_name = 'Piano'
-        else:
-            instrument_list.append(inst)
-            tracks.append(track)
+            print("NO RECOGNIZED INSTRUMENT")
+            inst = 'Piano'
+        # else:
+        instrument_list.append(inst)
+        tracks.append(track)
 
     #tracks = tracks[:3]
     print("CHANNELS : ", len(tracks))
@@ -126,10 +126,7 @@ def loadManyMidi(data_source):
             songs.resize(songs.shape[0],songs.shape[1],songs.shape[2],channels)
         elif data_shape[2] < channels:
             song_songs.resize(song_songs.shape[0],song_songs.shape[1],song_songs.shape[2],channels)
-        print ("total songs shape is:", songs.shape)
-        print ("song songs shape is:", songs.shape)
         songs = np.concatenate((songs, song_songs), axis=0)
-
     return songs, (BEATS_PER_MINISONG, NOTE_RANGE, channels)
 
 
@@ -171,7 +168,7 @@ def reMIDIfy(minisong, output):
     mf.write()
     mf.close()
 
-def playSong(music_file):
+def playSong(music_file, loop = False):
     music_file += ".mid"
     try:
         pygame.mixer.music.load(music_file)
@@ -183,7 +180,10 @@ def playSong(music_file):
         pygame.mixer.music.fadeout(1000)
         pygame.mixer.music.stop()
         raise SystemExit
-    pygame.mixer.music.play()
+    if loop:
+        pygame.mixer.music.play(-1)
+    else:
+        pygame.mixer.music.play()
 
 def initPygame():
     global pygame
@@ -194,8 +194,9 @@ def saveMidi(notesData, epoch, output_dir, play_live):
     f = output_dir+"/song_"+str(epoch)
     reMIDIfy(notesData[0], f)
     if play_live:
-        if not pygame.mixer.music.get_busy():
-            playSong(f)
+        # if not pygame.mixer.music.get_busy():
+        #     playSong(f)
+        playSong(f, loop = True)
 
 def writeCutSongs(notesData, directory = "output/midi_input"):
     if not os.path.exists(directory):

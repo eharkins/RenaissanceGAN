@@ -1,4 +1,3 @@
-Renaissance
 from keras.datasets import mnist
 from keras import backend as K
 import keras.utils
@@ -217,7 +216,7 @@ else:
             res = generateImage((minisong))
             cv2.imwrite(output_dir+"/midi_input/input_score_%d.png" % i, res*255)
             if args.display:
-                cv2.imshow('Rennaissance GAN', res)
+                cv2.imshow('Renaissance GAN', res)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     sys.exit(0)
         x_train, data_shape = songs, shape
