@@ -15,27 +15,16 @@ from keras import initializers, metrics
 # Optimizer
 adam = Adam(lr=0.0001, beta_1=0.5)
 
-
 def makeGenerator(data_shape, noise_vect_size):
     data_size = data_shape[0]*data_shape[1]*data_shape[2]
     channels = data_shape[2]
     generator = Sequential()
     generator.add(Dense(data_size, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
-    #could random normal be responsible for lack of color variation?
-    #generator.add(Dropout(.1))
     generator.add(Dense(data_size, activation = 'sigmoid'))
-    #generator.add(Dense(data_size, activation = 'sigmoid', input_dim=noise_vect_size, kernel_initializer=initializers.RandomNormal(stddev=0.02)))
-    #generator.add(Dropout(.1))
-
-    # generator.add(Dense(data_size, activation = 'sigmoid'))
-    #generator.add(Dropout(.1))
     generator.add(Reshape((data_shape), input_shape=(data_size,)))
     generator.add(Conv2DTranspose(32, (3, 3), padding='same'))
     generator.add(LeakyReLU(0.1))
     generator.add(Conv2DTranspose(channels, (3, 3), padding='same', activation = 'relu'))
-    #generator.add(LeakyReLU(0.1))
-    #generator.add(Conv2DTranspose(channels, (3, 3), strides = (1,1), padding='same', activation = 'sigmoid'))
-
     generator.compile(loss = 'binary_crossentropy', optimizer = adam)
     return generator
 

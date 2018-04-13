@@ -19,6 +19,7 @@ LENGTH_PER_BEAT = 0.25
 song_tempo = 100
 
 instrument_list = []
+
 # put the pitches into the corresponding index in the array
 def addNote(notes, final_tracks, measure_in_song, minisong, track_n):
     for note in notes:
@@ -29,8 +30,8 @@ def addNote(notes, final_tracks, measure_in_song, minisong, track_n):
         elif not note.isRest:
             final_tracks[minisong, position, note.pitch.midi-LOWEST_PITCH, track_n] = 1 #note.volume.velocity/MAX_VOL
 
-
-def get_standardized_note_tracks(num_songs, beats_per_minisong, tracks):
+# convert the tracks into encoded arrays for training
+def getStandardizedNoteTracks(num_songs, beats_per_minisong, tracks):
     #first dimension is minisong number * notes per minisong
     final_tracks = np.zeros((num_songs, beats_per_minisong, NOTE_RANGE, len(tracks)))
     print ("tracks size is: ", len(tracks))
@@ -38,24 +39,16 @@ def get_standardized_note_tracks(num_songs, beats_per_minisong, tracks):
     for track_n in range(len(tracks)):
         track = tracks[track_n]
         # add our instrument to the array to keep track of instruments on each channel
-        # inst = track.getInstrument()
-        # inst_name = inst.instrumentName
-        # print ("instrument", track_n, " is: ", inst_name)
-        # global instrument_list
-        # if(inst_name == None):
-        #     print("NO INSTRUMENT")
-        #     inst_name = 'Piano'
-        #     instrument_list.append(inst_name)
-        #     continue
-        # instrument_list.append(inst_name)
-
         measures = track.flat.notes.stream().measures(0, None)
         measures = measures.getElementsByClass("Measure")
         print ("number of measures: ", len(measures))
         for measure in range(len(measures)):
             m = measures[measure]
+            # this evaluates to the index of the minisong which we are creating:
             minisong = int(measure/MEASURES_PER_MINISONG)
+            # this evaluates to the index of the measure:
             measure_in_song = measure%MEASURES_PER_MINISONG
+            # voices are an extra level of nesting by Music21 library we need to handle
             if m.voices:
                 for v in m.voices:
                     addNote(v.notes, final_tracks, measure_in_song, minisong, track_n)
@@ -63,6 +56,7 @@ def get_standardized_note_tracks(num_songs, beats_per_minisong, tracks):
                 addNote(m.notes, final_tracks, measure_in_song, minisong, track_n)
     return final_tracks
 
+# read midi file and produce encoded training data
 def loadMidi(data_source):
     mf = midi.MidiFile()
     mf.open(filename = data_source)
@@ -85,14 +79,13 @@ def loadMidi(data_source):
     for track in all_tracks:
         inst = track.getInstrument().instrumentName
         print ("track is: ", inst)
+        # Music21 does not support many MIDI instruments - we need to handle these cases
         if(inst == None):
             print("NO RECOGNIZED INSTRUMENT")
             inst = 'Piano'
-        # else:
         instrument_list.append(inst)
         tracks.append(track)
 
-    #tracks = tracks[:3]
     print("CHANNELS : ", len(tracks))
     channels = len(tracks)
     data_shape = (BEATS_PER_MINISONG, NOTE_RANGE, channels)
@@ -104,13 +97,11 @@ def loadMidi(data_source):
         longest_length = max(longest_length, track.duration.quarterLength)
     mybeats = longest_length/LENGTH_PER_BEAT
     num_songs = math.ceil(mybeats/BEATS_PER_MINISONG)
-    minisongs = get_standardized_note_tracks(num_songs, BEATS_PER_MINISONG, tracks)
+    minisongs = getStandardizedNoteTracks(num_songs, BEATS_PER_MINISONG, tracks)
     return minisongs, data_shape
 
+# load multiple songs and produce encoded training data
 def loadManyMidi(data_source):
-    #channels = 3
-    #imageDim = getImageDim(data_source)
-    #data_shape = (imageDim, imageDim, 3)
     try:
         files = os.listdir(data_source)
     except:
@@ -120,6 +111,7 @@ def loadManyMidi(data_source):
     count = len(files)
     songs = np.empty((0,BEATS_PER_MINISONG,NOTE_RANGE,0))
     for i in range(count):
+        print ("loading file: ", files[i])
         song_songs, data_shape = loadMidi(data_source + "/" + files[i])
         if data_shape[2] > channels:
             channels = data_shape[2]
@@ -129,20 +121,24 @@ def loadManyMidi(data_source):
         songs = np.concatenate((songs, song_songs), axis=0)
     return songs, (BEATS_PER_MINISONG, NOTE_RANGE, channels)
 
-
+# convert encoded data to midi file format
 def reMIDIfy(minisong, output):
-    # each note
+    # empty stream
     s1 = stream.Stream()
     # assign the tempo based on what was read
     t = tempo.MetronomeMark('fast', song_tempo, note.Note(type='quarter'))
     s1.append(t)
     channels = minisong.shape[2]
+    # fill in the stream with notes according to the minisong values
+    # by channel
     for curr_channel in range(channels):
         inst = instrument.fromString(instrument_list[curr_channel])
         new_part = stream.Part()
         new_part.insert(0, inst)
+        # by beat
         for beat in range(BEATS_PER_MINISONG):
             notes = []
+            # by pitch in a beat
             for curr_pitch in range(NOTE_RANGE):
                 #if this pitch is produced with at least 10% likelihood then count it
                 if minisong[beat][curr_pitch][curr_channel]>VOLUME_CUTOFF:
@@ -155,7 +151,6 @@ def reMIDIfy(minisong, output):
                     notes.append(n)
             if notes:
                 my_chord = chord.Chord(notes)
-
             else:
                 my_chord = note.Rest()
                 my_chord.quarterLength = LENGTH_PER_BEAT
@@ -168,6 +163,7 @@ def reMIDIfy(minisong, output):
     mf.write()
     mf.close()
 
+# play music while running
 def playSong(music_file, loop = False):
     music_file += ".mid"
     try:
@@ -185,19 +181,20 @@ def playSong(music_file, loop = False):
     else:
         pygame.mixer.music.play()
 
+# play live while generating
 def initPygame():
     global pygame
     import pygame
     pygame.mixer.init()
 
+# save a generated minisong
 def saveMidi(notesData, epoch, output_dir, play_live):
     f = output_dir+"/song_"+str(epoch)
     reMIDIfy(notesData[0], f)
     if play_live:
-        # if not pygame.mixer.music.get_busy():
-        #     playSong(f)
         playSong(f, loop = True)
 
+# used for testing the encoding
 def writeCutSongs(notesData, directory = "output/midi_input"):
     if not os.path.exists(directory):
         os.makedirs(directory)

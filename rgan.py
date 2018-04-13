@@ -17,39 +17,33 @@ os.environ["KERAS_BACKEND"] = "tensorflow"
 
 DATASETS_DIR = os.path.dirname(os.path.realpath(__file__))
 
+# [1]
+#https://github.com/Zackory/Keras-MNIST-GAN
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=12000,
-                        help='the number of training steps to take')
-    parser.add_argument('--batch', type=int, default=20,
-                        help='the batch size')
-    parser.add_argument('--input', type=str, default='bach.mid',
-                        help='directory of examples (within colors)')
-    parser.add_argument('--output', type=str, default='uni_generated',
-                        help='directory of output (within colors)')
-    parser.add_argument('--plot-every', type=int, default=25,
-                            help='how many epochs between saving the graph')
-    parser.add_argument('--save-every', type=int, default=5,
-                                help='how many epochs between printing image')
-    parser.add_argument('--channels', type=int, default=3,
-                        help='color:3 bw: 1')
-    parser.add_argument('--display', dest='display', action='store_true')
+    parser.add_argument('--epochs', type=int, default=12000, help='the number of training steps to take')
+    parser.add_argument('--batch', type=int, default=5, help='the batch size')
+    parser.add_argument('--input', type=str, default='bach.mid', help='directory of examples (within colors)')
+    parser.add_argument('--output', type=str, default='uni_generated', help='directory of output (within colors)')
+    parser.add_argument('--plot-every', type=int, default=100, help='how many epochs between saving the graph')
+    parser.add_argument('--save-every', type=int, default=100, help='how many epochs between printing image')
+    parser.add_argument('--display', dest='display', action='store_true', default=True)
     parser.add_argument('--no-display', dest='display', action='store_false')
-    parser.set_defaults(display=True)
+    # parser.set_defaults(display=True)
     return parser.parse_args()
-
 
 os.environ["KERAS_BACKEND"] = "tensorflow"
 
+# Set args
 args = parse_args()
-
 data_source = "data/" + args.input
 output_dir = "output/" + args.output
 epochs = args.epochs
 batch_size = args.batch
 doing_music = 0
 
+# define the image dimensions for training data
 def getImageDim(data_source):
     try:
         files = os.listdir(data_source)
@@ -58,12 +52,11 @@ def getImageDim(data_source):
         sys.exit(0)
     height, width, channels = cv2.imread(os.path.join(data_source,files[0])).shape
     print ("height: ", height, " width: ", width, " channels: ", channels)
-    #returns height of first image
     return height
 
-
+# process a dataset of images
 def loadPixels(data_source):
-    channels = 3
+    channels = 3 #RGB
     imageDim = getImageDim(data_source)
     data_shape = (imageDim, imageDim, 3)
 
@@ -79,6 +72,8 @@ def loadPixels(data_source):
     data = images/255
     return data, data_shape
 
+# https://github.com/menwhitehead/NPANN/blob/a4e1c02efd454361191cc7384bad5f1866a7899d/npann/Utilities/misc_functions.py
+# process the mnist dataset from h5py file
 def loadMNIST(data_source, dataType, imageDim = 28):
     data_shape = (imageDim, imageDim, 1)
     size = 10000
@@ -99,26 +94,27 @@ def loadMNIST(data_source, dataType, imageDim = 28):
     print ("MNIST Dataset LOADED")
     return X, data_shape
 
-
-
+# produce an image from output of generator
 def generateImage(arr, magnification = 10):
     #deal with more or less than 3 channels
     img = np.zeros((arr.shape[0], arr.shape[1], 3), dtype=arr.dtype)
     for i in range(arr.shape[2]):
         img[:,:,i%3] += arr[:,:,i]
+    # create a musical score
     if doing_music:
-        img = 1-img
+        img = 1-img #flip color values for white background - helps musical score visibility
     res = cv2.resize(img, None, fx=magnification, fy=magnification, interpolation = cv2.INTER_NEAREST)
     return res
 
+# show an image on the screen
 def visualize(arr):
     res = generateImage(arr)
     cv2.imshow('Renaissance GAN', res) # on windows, x server is needed
     if cv2.waitKey(1) & 0xFF == ord('q'):
         sys.exit(0)
 
-
-
+# [1]
+# plot the loss from the generator and discriminator, along with discriminator's accuracy
 def plotLoss(epoch):
     plt.figure(figsize=(10, 8))
     plt.plot(dLosses, label='Discriminitive loss')
@@ -131,6 +127,7 @@ def plotLoss(epoch):
     plt.close()
     print ("Saving loss graph as "+ output_dir + "/gan_loss_epoch_%d.png" % epoch)
 
+# save the generated image
 def saveImage(arr, e, low_loss=False):
   img = generateImage(arr[0])*255
   if low_loss:
@@ -138,7 +135,7 @@ def saveImage(arr, e, low_loss=False):
   else:
     cv2.imwrite(output_dir + '/generated_image_epoch_%d.png' % e, img)
 
-#save several images from seeds
+#save several images from seeds - this helps us see a variety of what the GAN is producing
 def saveAlbum(generator, e, data_shape, seeds):
     shape = seeds.shape
     collage = np.empty (shape = (shape[0]*data_shape[0],shape[1]*data_shape[1],data_shape[2]))
@@ -146,38 +143,28 @@ def saveAlbum(generator, e, data_shape, seeds):
         for y in range (shape[1]):
             seed = seeds[x,y]
             arr = generator.predict(seed.reshape((1,100)))[0]
-            # print ("arr.shape is:", arr.shape)
-            # image = np.zeros((arr.shape[0], arr.shape[1], 3))
-            # for i in range(arr.shape[2]):
-            #     print ("i is:", i)
-            #     image[:,:,i%3] += arr[:,:,i]
-            # if doing_music:
-            #     image = 1-image
             image = generateImage(arr, 1)
             #place pixel values of image in the collage
             collage[x*data_shape[0]:(x+1)*data_shape[0],y*data_shape[1]:(y+1)*data_shape[1]] = (image)
     collage *= 255
     cv2.imwrite(output_dir + '/epoch_%d.png' % (e), collage)
 
+# create a directory for the saved images, midi files, and graphs
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
 noise_vect_size = 100
-np.random.seed(1000)
+
+# uncomment for development: consistent seed
+# np.random.seed(1000)
 
 #seed for display
 seed = np.random.normal(0, 1, size=[1, noise_vect_size])
 #seed for multi-image generation
-#seeds = np.random.normal(0,1,(3,3,noise_vect_size))
 seeds = np.random.uniform(-1, 1, (3,3,noise_vect_size))
 
-
-if data_source[-4:] == ".mid":
-    print (" MUSIC! ")
-    doing_music = 1
-    from music_util import *
-    from models.midi_model import *
-    songs, shape = loadMidi(data_source)
+# save and show the encoded input songs as images
+def showInputSongs(songs):
     debug_dir = output_dir + "/midi_input"
     writeCutSongs(songs, debug_dir)
     if args.display:
@@ -193,40 +180,34 @@ if data_source[-4:] == ".mid":
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 sys.exit(0)
 
+# if reading a midi file, process midi data
+if data_source[-4:] == ".mid":
+    print (" MUSIC! ")
+    doing_music = 1
+    # import the music processing methods
+    from music_util import *
+    # import the music model
+    from models.midi_model import *
+    # produce minisongs from the training data
+    songs, shape = loadMidi(data_source)
+    showInputSongs(songs)
     x_train, data_shape = songs, shape
 elif data_source[-5:] == ".hdf5":
     print (" MNIST! ")
     x_train, data_shape = loadMNIST(data_source, "train")
+elif os.listdir(data_source)[0][-4:] == ".mid":
+    print (" MUSIC! (MULTIPLE SONGS)")
+    doing_music = 1
+    from music_util import *
+    from models.midi_model import *
+    songs, shape = loadManyMidi(data_source)
+    showInputSongs(songs)
+    x_train, data_shape = songs, shape
 else:
-    #get first file
-    if os.listdir(data_source)[0][-4:] == ".mid":
-        print (" MUSIC! (MULTIPLE SONGS)")
-        doing_music = 1
-        from music_util import *
-        from models.midi_model import *
-        songs, shape = loadManyMidi(data_source)
-        debug_dir = output_dir + "/midi_input"
-        writeCutSongs(songs, debug_dir)
-        if args.display:
-            initPygame();
-        if not os.path.exists(debug_dir):
-            os.makedirs(debug_dir)
-        for i in range(len(songs)):
-            minisong = songs[i]
-            res = generateImage((minisong))
-            cv2.imwrite(output_dir+"/midi_input/input_score_%d.png" % i, res*255)
-            if args.display:
-                cv2.imshow('Renaissance GAN', res)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    sys.exit(0)
-        x_train, data_shape = songs, shape
-    else:
-        print (" COLOR IMAGES! ")
-        x_train, data_shape = loadPixels(data_source)
+    print (" COLOR IMAGES! ")
+    x_train, data_shape = loadPixels(data_source)
 if not doing_music:
     from models.upsample_model import *
-
-# x_train, data_shape = loadData()
 
 
 channels = data_shape[2]
@@ -234,7 +215,7 @@ data_size = data_shape[0]*data_shape[1]*data_shape[2]
 
 gan, generator, discriminator = makeGAN(data_shape, noise_vect_size)
 
-
+# save a summary of the model configuration
 def saveSummary(filename = "info.txt"):
     file = open(output_dir + "/" + filename,"w")
     with open(output_dir + "/" + filename,"w") as fh:
@@ -253,6 +234,8 @@ dLosses = []
 gLosses = []
 accuracies=[]
 
+
+# https://github.com/vwrs/dcgan-mnist
 def trainGAN(train_data, epochs, batch_size):
     batchCount = len(train_data) / batch_size
 
@@ -266,26 +249,6 @@ def trainGAN(train_data, epochs, batch_size):
         print ('Batches per epoch:', batchCount)
         for b in range(len(train_data)//batch_size):
 
-            # #old training method
-            # chosen_data_indexes = np.random.randint(1,train_data.shape[0],size = batch_size)
-            # data_x = np.array([train_data[i] for i in chosen_data_indexes]) #get next batch of the right size from training data
-            # #data_x = np.reshape(data_x, ((batch_size) +data_shape))
-            #
-            # #train discriminator
-            # generated_x = generator.predict(np.random.random((batch_size, noise_vect_size)))#could use np.random.normal if training fails
-            # discriminator_x = np.concatenate((data_x, generated_x)) #concatenate takes a tuple as input
-            # discriminator_y = np.zeros(2*batch_size)
-            # discriminator_y[:batch_size] = 1
-            # discriminator.trainable = True
-            # dloss, accuracy = discriminator.train_on_batch(discriminator_x,discriminator_y)
-            #
-            # #train generator
-            # discriminator.trainable=False
-            # gan_x = np.random.random((batch_size,noise_vect_size))
-            # gan_y = np.ones(batch_size) #creates an array of ones (expected output)
-            # gloss = gan.train_on_batch(gan_x, gan_y)
-
-            # new training method
             X_d_true = train_data[b*batch_size:(b+1)*batch_size]
             X_g = np.array([np.random.normal(0,0.5,100) for _ in range(batch_size)])
             X_d_gen = generator.predict(X_g, verbose=0)
@@ -296,9 +259,6 @@ def trainGAN(train_data, epochs, batch_size):
             discriminator.train_on_batch(X_d_true, y_d_true)
             dloss, accuracy = discriminator.train_on_batch(X_d_gen, y_d_gen)
 
-            # discriminator_x = np.concatenate((X_d_true, X_d_gen))
-            # discriminator_y = np.concatenate((y_d_true, y_d_gen))
-            # dloss, accuracy = discriminator.train_on_batch(discriminator_x,discriminator_y)
             # train generator
             gloss = gan.train_on_batch(X_g, y_g)
 
@@ -330,5 +290,5 @@ def trainGAN(train_data, epochs, batch_size):
 
 
 printIntro()
-saveSummary();
+saveSummary()
 trainGAN(x_train, epochs = epochs, batch_size=batch_size) #begin training
