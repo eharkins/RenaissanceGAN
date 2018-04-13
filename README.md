@@ -1,8 +1,9 @@
 # Renaissance GAN: one GAN model for Music and Image Generation
 2017/18 CC CS Senior Project on Generative Adversarial Networks (GANs) - Eli, Calvin, Aidan, Nikhil
 
-<img src="examples/song.gif" width="400" height = "400">
+
 <img src="examples/eyes.png" width="300" height = "300">
+<img src="examples/song.gif" width="400" height = "400">
 
 Run with ```python3 unigan.py --input [Input .mid file, hdf5 file, or directory] --output [Ouput directory to be created]```
 
