@@ -2,7 +2,7 @@
 
 The Rennaissance man of GANs: a GAN model for music and images.
 
-![Former US President George W. Bush](examples/bush.gif?raw=true)  
+![Former US President George W. Bush](examples/bush.gif)  
 
 2017/18 CC CS Senior Project on Generative Adversarial Networks (GANs) - Eli, Calvin, Aidan, Nikhil
 
