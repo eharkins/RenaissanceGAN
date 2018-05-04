@@ -1,7 +1,7 @@
 # Renaissance GAN: A Convolutional Generative Adversarial Network for Creating Music
 2017/18 CC CS Senior Project on Generative Adversarial Networks (GANs) - Eli, Calvin, Aidan, Nikhil
 
-Abstract:
+# Abstract:
 Music, perhaps more so than any other human activity,
 is regarded as great expression of creativity and emotion.
 Nonetheless, recent developments in machine learning have
