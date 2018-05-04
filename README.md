@@ -21,6 +21,7 @@ resembling the human-generated input.
 ## Paper:
 https://www.dropbox.com/s/h3g01tdjh8yaiv6/renaissance-gan-convolutional.pdf?dl=0
 
+## Results and Running Instructions
 <img src="examples/eyes.png" width="300" height = "300">
 <img src="examples/song.gif" width="400" height = "400">
 
