@@ -27,7 +27,7 @@ https://www.dropbox.com/s/h3g01tdjh8yaiv6/renaissance-gan-convolutional.pdf?dl=0
 
 Run with:
 
-```python3 unigan.py --input [Input .mid file, hdf5 file, or directory] --output [Ouput directory to be created]```
+```python3 rgan.py --input [Input .mid file, hdf5 file, or directory] --output [Ouput directory to be created]```
 
 Optional arguments:
 
